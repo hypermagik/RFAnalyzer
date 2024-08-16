@@ -214,7 +214,7 @@ public class AnalyzerProcessingLoop extends Thread {
 			realPower = realPower * realPower;
 			imagPower = im[i]/fftSize;
 			imagPower = imagPower * imagPower;
-			mag[targetIndex] = (float) (10* Math.log10(Math.sqrt(realPower + imagPower)));
+			mag[targetIndex] = (float) (20* Math.log10(Math.sqrt(realPower + imagPower)));
 		}
 	}
 }
