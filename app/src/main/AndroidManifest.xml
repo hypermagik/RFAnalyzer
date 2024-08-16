@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.mantz_it.rfanalyzer" >
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- Read external storage is used for the FileSource -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
@@ -10,7 +9,7 @@
 
     <!-- Internet is used to connect to local and remote rtl_tcp instances -->
     <uses-permission android:name="android.permission.INTERNET" />
-    
+
     <!-- Declare permissions to read and write the bookmarks database -->
     <permission android:name="com.mantz_it.rfanalyzer.permission.READ_BOOKMARKS"
                 android:label="Read access to the bookmarks of RF Analyzer" />
@@ -24,8 +23,8 @@
         android:theme="@style/AppTheme" >
         <activity
             android:name=".MainActivity"
-            android:label="@string/app_name"
-            android:launchMode="singleTop" >
+            android:launchMode="singleTop"
+            android:exported="true" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

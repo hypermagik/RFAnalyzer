@@ -282,37 +282,44 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 		// automatically handle clicks on the Home/Up button, so long
 		// as you specify a parent activity in AndroidManifest.xml.
 		int id = item.getItemId();
-		switch (id) {
-			case R.id.action_startStop:		if(running)
-												stopAnalyzer();
-											else
-												startAnalyzer();
-											break;
-			case R.id.action_setDemodulation: showDemodulationDialog();
-											break;
-			case R.id.action_setFrequency:	tuneToFrequency();
-											break;
-			case R.id.action_setGain:		adjustGain();
-											break;
-			case R.id.action_autoscale:		analyzerSurface.autoscale();
-											break;
-			case R.id.action_record:		if(scheduler != null && scheduler.isRecording())
-												stopRecording();
-											else
-												showRecordingDialog();
-											break;
-			case R.id.action_bookmarks:		showBookmarksDialog();
-											break;
-			case R.id.action_settings:		Intent intentShowSettings = new Intent(getApplicationContext(), SettingsActivity.class);
-											startActivity(intentShowSettings);
-											break;
-			case R.id.action_help:			Intent intentShowHelp = new Intent(Intent.ACTION_VIEW);
-											intentShowHelp.setData(Uri.parse(getString(R.string.help_url)));
-											startActivity(intentShowHelp);
-											break;
-			case R.id.action_info:			showInfoDialog();
-											break;
-			default:
+		if (id == R.id.action_startStop) {
+			if (running)
+				stopAnalyzer();
+			else
+				startAnalyzer();
+		}
+		else if (id==R.id.action_setDemodulation) {
+			showDemodulationDialog();
+		}
+		else if (id==R.id.action_setFrequency) {
+			tuneToFrequency();
+		}
+		else if (id==R.id.action_setGain) {
+			adjustGain();
+		}
+		else if (id==R.id.action_autoscale) {
+			analyzerSurface.autoscale();
+		}
+		else if (id==R.id.action_record) {
+			if (scheduler != null && scheduler.isRecording())
+				stopRecording();
+			else
+				showRecordingDialog();
+		}
+		else if (id==R.id.action_bookmarks) {
+			showBookmarksDialog();
+		}
+		else if (id==R.id.action_settings) {
+			Intent intentShowSettings = new Intent(getApplicationContext(), SettingsActivity.class);
+			startActivity(intentShowSettings);
+		}
+		else if (id==R.id.action_help) {
+			Intent intentShowHelp = new Intent(Intent.ACTION_VIEW);
+			intentShowHelp.setData(Uri.parse(getString(R.string.help_url)));
+			startActivity(intentShowHelp);
+		}
+		else if (id==R.id.action_info) {
+			showInfoDialog();
 		}
 		return true;
 	}

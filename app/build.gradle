@@ -1,13 +1,13 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 23
-    buildToolsVersion "23.0.3"
+    namespace "com.mantz_it.rfanalyzer"
+    compileSdk 34
 
     defaultConfig {
         applicationId "com.mantz_it.rfanalyzer"
-        minSdkVersion 14
-        targetSdkVersion 23
+        minSdk 14
+        targetSdk 28
         versionCode 1303
         versionName "1.13"
     }
@@ -17,10 +17,14 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+
+    useLibrary 'android.test.base'
+    useLibrary 'android.test.runner'
+    useLibrary 'android.test.mock'
 }
 
 dependencies {
-    compile fileTree(include: ['*.jar'], dir: 'libs')
-    compile project(':hackrf_android')
-    compile 'com.android.support:appcompat-v7:23.3.0'
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation project(':hackrf_android')
+    implementation 'com.android.support:appcompat-v7:28.0.0'
 }
