@@ -1,1 +1,1 @@
-include ':app', ':hackrf_android'
+include ':app', ':hackrf_android', ':bladerf'

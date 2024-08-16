@@ -12,11 +12,13 @@
         <item>File Source</item>
         <item>HackRF</item>
         <item>RTL-SDR</item>
+        <item>bladeRF 2.0</item>
     </string-array>
     <string-array name="pref_sourceType_values">
         <item>0</item>
         <item>1</item>
         <item>2</item>
+        <item>3</item>
     </string-array>
     <string-array name="pref_screenOrientation_entries">
         <item>Auto</item>
@@ -169,10 +171,12 @@
     <string-array name="pref_filesource_format_entries">
         <item>8-bit signed IQ (HackRF)</item>
         <item>8-bit unsigned IQ (RTL-SDR)</item>
+        <item>12-bit signed IQ padded to 16-bit (bladeRF)</item>
     </string-array>
     <string-array name="pref_filesource_format_values">
         <item>0</item>
         <item>1</item>
+        <item>2</item>
     </string-array>
     <string-array name="recording_stopAfterUnit">
         <item>MB</item>

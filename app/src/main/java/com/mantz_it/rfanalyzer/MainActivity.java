@@ -20,6 +20,7 @@ import android.text.Html;
 import android.text.TextWatcher;
 import android.text.method.LinkMovementMethod;
 import android.util.Log;
+import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -100,7 +101,8 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 	private static final int FILE_SOURCE = 0;
 	private static final int HACKRF_SOURCE = 1;
 	private static final int RTLSDR_SOURCE = 2;
-	private static final String[] SOURCE_NAMES = new String[] {"filesource", "hackrf", "rtlsdr"};
+    private static final int BLADERF_SOURCE = 3;
+    private static final String[] SOURCE_NAMES = new String[]{"filesource", "hackrf", "rtlsdr", "bladerf"};
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -611,6 +613,12 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 							((RtlsdrSource)source).setFrequencyOffset(frequencyOffset);
 					}
 					break;
+                case BLADERF_SOURCE:
+                    if (!(source instanceof BladeRFSource)) {
+                        source.close();
+                        createSource();
+                    }
+                    break;
 				default:
 			}
 		}
@@ -712,7 +720,17 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 							((RtlsdrSource) source).setIFGain(preferences.getInt(getString(R.string.pref_rtlsdr_ifGain), 0));
 						}
 						break;
-			default:	Log.e(LOGTAG, "createSource: Invalid source type: " + sourceType);
+			case BLADERF_SOURCE:
+						// Create BladeRF source
+						source = new BladeRFSource();
+						source.setFrequency(preferences.getLong(getString(R.string.pref_frequency), source.getFrequency()));
+						source.setSampleRate(preferences.getInt(getString(R.string.pref_sampleRate), source.getSampleRate()));
+						final BladeRFSource bladeRF = (BladeRFSource) source;
+						bladeRF.setGain(preferences.getInt(getString(R.string.pref_bladerf_gain), bladeRF.getGain()));
+						bladeRF.setAGC(preferences.getBoolean(getString(R.string.pref_bladerf_agc), bladeRF.getAGC()));
+						break;
+            default:
+						Log.e(LOGTAG, "createSource: Invalid source type: " + sourceType);
 						return false;
 		}
 
@@ -794,6 +812,12 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 					Log.e(LOGTAG, "openSource: sourceType is RTLSDR_SOURCE, but source is null or of other type.");
 					return false;
 				}
+			case BLADERF_SOURCE:
+				if (source != null && source instanceof BladeRFSource) {
+					return source.open(this, this);
+				}
+				Log.e(LOGTAG, "openSource: sourceType is BLADERF_SOURCE, but source is null or of other type.");
+				return false;
 			default:
 				Log.e(LOGTAG, "openSource: Invalid source type: " + sourceType);
 				return false;
@@ -1347,9 +1371,69 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 				rtlsdrDialog.show();
 				rtlsdrDialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
 				break;
+            case BLADERF_SOURCE:
+				adjustGainBladeRF();
+                break;
 			default:
 				Log.e(LOGTAG, "adjustGain: Invalid source type: " + sourceType);
 				break;
+		}
+	}
+
+	private void adjustGainBladeRF() {
+		final BladeRFSource bladeRF = (BladeRFSource) source;
+		final int initialGain = bladeRF.getGain();
+
+		final LinearLayout view = (LinearLayout) this.getLayoutInflater().inflate(R.layout.bladerf_gain, null);
+
+		final TextView gainTV = view.findViewById(R.id.tv_bladerf_gain);
+		gainTV.setText((initialGain - 16) + "dB");
+
+		final SeekBar gainSB = view.findViewById(R.id.sb_bladerf_gain);
+		gainSB.setMin(0);
+		gainSB.setMax(77);
+		gainSB.setProgress(initialGain);
+		gainSB.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+			@Override
+			public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+				gainTV.setText((progress - 16) + "dB");
+				bladeRF.setGain(progress);
+			}
+			@Override
+			public void onStartTrackingTouch(SeekBar seekBar) {}
+			@Override
+			public void onStopTrackingTouch(SeekBar seekBar) {}
+		});
+
+		final Switch agcSW = view.findViewById(R.id.sw_bladerf_agc);
+		agcSW.setChecked(bladeRF.getAGC());
+		agcSW.setOnCheckedChangeListener((compoundButton, b) -> bladeRF.setAGC(b));
+
+		final AlertDialog dialog = new AlertDialog.Builder(this)
+				.setTitle("Adjust Gain Settings")
+				.setView(view)
+				.setPositiveButton("Set", (d, whichButton) -> {
+					final int gain = gainSB.getProgress();
+					final boolean agc = agcSW.isChecked();
+					SharedPreferences.Editor edit = preferences.edit();
+					edit.putInt(getString(R.string.pref_bladerf_gain), gain);
+					edit.putBoolean(getString(R.string.pref_bladerf_agc), agc);
+					edit.apply();
+				})
+				.setNegativeButton("Cancel", (d, whichButton) -> {
+					final int gain = preferences.getInt(getString(R.string.pref_bladerf_gain), bladeRF.getGain());
+					final boolean agc = preferences.getBoolean(getString(R.string.pref_bladerf_agc), bladeRF.getAGC());
+					bladeRF.setGain(gain);
+					bladeRF.setAGC(agc);
+				})
+				.create();
+
+		dialog.show();
+
+		final android.view.Window window = dialog.getWindow();
+		if (window != null) {
+			dialog.getWindow().setGravity(Gravity.BOTTOM);
+			dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
 		}
 	}
 

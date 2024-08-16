@@ -20,6 +20,8 @@
     <string name="action_bookmarks">Bookmarks</string>
     <string name="action_autoscale">Autoscale</string>
     <string name="help_url">https://github.com/demantz/RFAnalyzer/blob/master/doc/rf_analyzer_manual.md</string>
+    <string name="gain">Gain</string>
+    <string name="automatic_gain_control">Automatic Gain Control</string>
     <string name="hackrf_vga_gain_label">VGA Gain:</string>
     <string name="hackrf_lna_gain_label">LNA Gain:</string>
     <string name="rtlsdr_manual_gain_label">Manual gain:</string>
@@ -60,6 +62,8 @@
     <string name="pref_rtlsdr_agc">pref_rtlsdr_agc</string>
     <string name="pref_rtlsdr_gain">pref_rtlsdr_gain</string>
     <string name="pref_rtlsdr_ifGain">pref_rtlsdr_ifGain</string>
+    <string name="pref_bladerf_gain">pref_bladerf_gain</string>
+    <string name="pref_bladerf_agc">pref_bladerf_agc</string>
     <string name="pref_signalProcessing_category">pref_signalProcessing_category</string>
     <string name="pref_signalProcessing_category_title">Signal Processing</string>
     <string name="pref_sourceType">pref_sourceType</string>
