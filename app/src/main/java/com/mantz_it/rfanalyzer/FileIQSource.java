@@ -40,7 +40,7 @@ public class FileIQSource implements IQSourceInterface {
 	private int sampleRate = 0;
 	private long frequency = 0;
 	private int packetSize = 0;
-	private int sleepTime = 0;			// min. time (in ms) between two getPacket() calls to simulate the sample rate
+	private long sleepTime = 0;			// min. time (in us) between two getPacket() calls to simulate the sample rate
 	private long lastAccessTime = 0;	// timestamp of the last getPacket() call
 	private byte[] buffer = null;
 	private File file = null;
@@ -61,7 +61,7 @@ public class FileIQSource implements IQSourceInterface {
 		this.frequency = frequency;
 		this.packetSize = packetSize;
 		this.buffer = new byte[packetSize];
-		this.sleepTime = (int)((packetSize/2)/(float)sampleRate * 1000); // note: half packet size because of I and Q samples
+		this.sleepTime = 1000000L * packetSize / 2 / sampleRate; // note: half packet size because of I and Q samples
 
 		switch (fileFormat) {
 			case FILE_FORMAT_8BIT_SIGNED:
@@ -218,11 +218,17 @@ public class FileIQSource implements IQSourceInterface {
 		if(bufferedInputStream == null)
 			return null;
 
+		final long now = System.nanoTime();
+
 		try {
 			// Simulate sample rate of real hardware:
-			int sleep = Math.min(sleepTime-(int)(System.currentTimeMillis()-lastAccessTime), timeout);
-			if(sleep > 0)
-				Thread.sleep(sleep);
+			final long sleep = Math.min(this.sleepTime * 1000 - (now - lastAccessTime), timeout * 1000000L);
+			final long sleepMillis = sleep / 1000000;
+			final long sleepNanos = sleep - sleepMillis * 1000000;
+
+			if(sleep > 0) {
+				Thread.sleep(sleepMillis, (int) sleepNanos);
+			}
 
 			// Read the samples.
 			if(bufferedInputStream.read(buffer, 0 , buffer.length) != buffer.length) {
@@ -234,7 +240,7 @@ public class FileIQSource implements IQSourceInterface {
 					if (bufferedInputStream.read(buffer, 0, buffer.length) != buffer.length)
 						return null;
 					else {
-						lastAccessTime = System.currentTimeMillis();
+						lastAccessTime = now;
 						return buffer;
 					}
 				} else {
@@ -252,7 +258,7 @@ public class FileIQSource implements IQSourceInterface {
 			return null;
 		}
 
-		lastAccessTime = System.currentTimeMillis();
+		lastAccessTime = now;
 		return buffer;
 	}
 
