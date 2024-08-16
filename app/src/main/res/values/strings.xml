@@ -68,7 +68,7 @@
     <string name="pref_signalProcessing_category_title">Signal Processing</string>
     <string name="pref_sourceType">pref_sourceType</string>
     <string name="pref_sourceType_title">Source Type</string>
-    <string name="pref_sourceType_default">1</string>
+    <string name="pref_sourceType_default">3</string>
     <string name="pref_sourceType_summ">Source type is set to: %s</string>
     <string name="pref_sourceSettings">pref_sourceSettings</string>
     <string name="pref_sourceSettings_title">Source Settings</string>
@@ -85,10 +85,10 @@
     <string name="pref_filesource_file">pref_filesource_file</string>
     <string name="pref_filesource_file_title">Source File</string>
     <string name="pref_filesource_file_summ">File path: %s</string>
-    <string name="pref_filesource_file_default">Test_Hackrf/hackrf_android.iq</string>
+    <string name="pref_filesource_file_default">RFAnalyzer/samples.iq</string>
     <string name="pref_filesource_format">pref_filesource_format</string>
     <string name="pref_filesource_format_title">File format:</string>
-    <string name="pref_filesource_format_default">0</string>
+    <string name="pref_filesource_format_default">2</string>
     <string name="pref_filesource_format_summ">File format is set to: %s</string>
     <string name="pref_filesource_repeat">pref_filesource_repeat</string>
     <string name="pref_filesource_repeat_title">Repeat</string>
@@ -182,7 +182,7 @@
     <string name="pref_advancedSettings_title">Advanced Settings</string>
     <string name="pref_fontSize">pref_fontSize</string>
     <string name="pref_fontSize_title">Font size</string>
-    <string name="pref_fontSize_default">2</string>
+    <string name="pref_fontSize_default">1</string>
     <string name="pref_fontSize_summ">Font size is set to: %s</string>
     <string name="pref_showDebugInformation">pref_showDebugInformation</string>
     <string name="pref_showDebugInformation_title">Show debug information</string>

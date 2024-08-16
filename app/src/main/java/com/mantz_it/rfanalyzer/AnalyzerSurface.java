@@ -72,7 +72,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 													// horizontal axis.
 
 	private static final String LOGTAG = "AnalyzerSurface";
-	private static final int MIN_DB = -100;	// Smallest dB value the vertical scale can start
+	private static final int MIN_DB = -130;	// Smallest dB value the vertical scale can start
 	private static final int MAX_DB = 10;	// Highest dB value the vertical scale can start
 	private static final int MIN_VIRTUAL_SAMPLERATE = 64;	// Smallest virtual sample rate
 
@@ -100,8 +100,8 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 	// the actual values when the user does scrolling and zooming
 	private long virtualFrequency = -1;		// Center frequency of the fft (baseband) AS SHOWN ON SCREEN
 	private int virtualSampleRate = -1;		// Sample Rate of the fft AS SHOWN ON SCREEN
-	private float minDB = -50;				// Lowest dB on the scale
-	private float maxDB = -5;				// Highest dB on the scale
+	private float minDB = -120;				// Lowest dB on the scale
+	private float maxDB = -30;				// Highest dB on the scale
 	private long lastFrequency;				// Center frequency of the last packet of fft samples
 	private int lastSampleRate;				// Sample rate of the last packet of fft samples
 
