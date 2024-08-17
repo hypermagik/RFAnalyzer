@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.DarkActionBar">
+        <item name="actionBarStyle">@style/DarkActionBar</item>
+        <item name="colorAccent">@android:color/system_accent1_200</item>
+        <item name="android:windowBackground">@android:color/system_background_dark</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">@android:color/system_background_dark</item>
+        <item name="android:navigationBarColor">@android:color/system_background_dark</item>
+    </style>
+
+    <style name="DarkActionBar" parent="Widget.AppCompat.ActionBar">
+        <item name="background">@android:color/system_background_dark</item>
+        <item name="color">@android:color/system_primary_dark</item>
+    </style>
+</resources>
