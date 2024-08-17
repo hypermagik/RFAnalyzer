@@ -182,6 +182,12 @@
             android:summaryOn="@string/pref_decoupledAxis_summ_on"
             android:summaryOff="@string/pref_decoupledAxis_summ_off"
             android:defaultValue="true" />
+        <SwitchPreference
+            android:key="@string/pref_changeSampleRateOnZoom"
+            android:title="@string/pref_changeSampleRateOnZoom_title"
+            android:summaryOn="@string/pref_changeSampleRateOnZoom_on"
+            android:summaryOff="@string/pref_changeSampleRateOnZoom_off"
+            android:defaultValue="false" />
         <ListPreference
             android:key="@string/pref_fontSize"
             android:title="@string/pref_fontSize_title"

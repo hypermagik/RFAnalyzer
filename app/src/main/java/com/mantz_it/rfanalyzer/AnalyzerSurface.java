@@ -70,6 +70,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 	private boolean verticalScrollEnabled = true;	// Enables vertical scrolling (dB scale)
 	private boolean decoupledAxis = true;			// Will seperate the scrolling/zooming sensitive areas for vertical and
 													// horizontal axis.
+	private boolean changeSampleRateOnZoom = false; // Change sample rate on horizontal zoom
 
 	private static final String LOGTAG = "AnalyzerSurface";
 	private static final int MIN_DB = -130;	// Smallest dB value the vertical scale can start
@@ -244,6 +245,15 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 	 */
 	public void setDecoupledAxis(boolean decoupledAxis) {
 		this.decoupledAxis = decoupledAxis;
+	}
+
+	/**
+	 * Allow sample rate change on horizontal zoom
+	 *
+	 * @param changeSampleRateOnZoom	true: change sample rate on horizontal zoom
+	 */
+	public void setChangeSampleRateOnZoom(boolean changeSampleRateOnZoom) {
+		this.changeSampleRateOnZoom = changeSampleRateOnZoom;
 	}
 
 	/**
@@ -641,7 +651,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 				float xScale = detector.getCurrentSpanX() / detector.getPreviousSpanX();
 				long frequencyFocus = virtualFrequency + (int) ((detector.getFocusX() / width - 0.5) * virtualSampleRate);
 				int maxSampleRate = demodulationEnabled ? (int) (source.getSampleRate() * 0.9) : source.getMaxSampleRate();
-				if(recordingEnabled)
+				if(recordingEnabled || !changeSampleRateOnZoom)
 					maxSampleRate = source.getSampleRate();
 				virtualSampleRate = (int) Math.min(Math.max(virtualSampleRate / xScale, MIN_VIRTUAL_SAMPLERATE), maxSampleRate);
 				virtualFrequency = Math.min(Math.max(frequencyFocus + (long) ((virtualFrequency - frequencyFocus) / xScale),
@@ -675,7 +685,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 
 			// Automatically re-adjust the sample rate of the source if we zoom too far out or in
 			// (only if not recording or demodulating!)
-			if(!recordingEnabled && !demodulationEnabled) {
+			if(!recordingEnabled && !demodulationEnabled && changeSampleRateOnZoom) {
 				if (source.getSampleRate() < virtualSampleRate && virtualSampleRate < source.getMaxSampleRate())
 					source.setSampleRate(source.getNextHigherOptimalSampleRate(virtualSampleRate));
 				int nextLower = source.getNextLowerOptimalSampleRate(source.getSampleRate());
