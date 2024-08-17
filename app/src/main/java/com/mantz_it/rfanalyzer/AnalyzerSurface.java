@@ -71,6 +71,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 	private boolean decoupledAxis = true;			// Will seperate the scrolling/zooming sensitive areas for vertical and
 													// horizontal axis.
 	private boolean changeSampleRateOnZoom = false; // Change sample rate on horizontal zoom
+	private boolean hidePowerGrid = false;          // Don't draw the power grid
 
 	private static final String LOGTAG = "AnalyzerSurface";
 	private static final int MIN_DB = -130;	// Smallest dB value the vertical scale can start
@@ -300,6 +301,22 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 	 */
 	public float getMaxDB() {
 		return maxDB;
+	}
+
+	/**
+	 * Hide the power grid
+	 *
+	 * @param hidePowerGrid	true: hide the power grid
+	 */
+	public void setHidePowerGrid(boolean hidePowerGrid) {
+		this.hidePowerGrid = hidePowerGrid;
+	}
+
+	/**
+	 * @return		True if power grid is hidden
+	 */
+	public boolean getHidePowerGrid() {
+		return hidePowerGrid;
 	}
 
 	/**
@@ -861,7 +878,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 
 	@Override
 	public void onLongPress(MotionEvent e) {
-		// not used
+		hidePowerGrid = !hidePowerGrid;
 	}
 
 	@Override
@@ -1360,6 +1377,10 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 	 * @param c				canvas of the surface view
 	 */
 	private void drawPowerGrid(Canvas c) {
+		if (hidePowerGrid) {
+			return;
+		}
+
 		// Calculate pixel height of a minor tick (1dB)
 		float pixelPerMinorTick = (float) (getFftHeight() / (maxDB-minDB));
 

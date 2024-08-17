@@ -263,6 +263,7 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 			outState.putInt(getString(R.string.save_state_virtualSampleRate), analyzerSurface.getVirtualSampleRate());
 			outState.putFloat(getString(R.string.save_state_minDB), analyzerSurface.getMinDB());
 			outState.putFloat(getString(R.string.save_state_maxDB), analyzerSurface.getMaxDB());
+			outState.putBoolean(getString(R.string.save_state_hidePowerGrid), analyzerSurface.getHidePowerGrid());
 		}
 	}
 
@@ -429,6 +430,7 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 				demodulator.setChannelWidth(savedInstanceState.getInt(getString(R.string.save_state_channelWidth)));
 				scheduler.setChannelFrequency(savedInstanceState.getLong(getString(R.string.save_state_channelFrequency)));
 			}
+			analyzerSurface.setHidePowerGrid(savedInstanceState.getBoolean(getString(R.string.save_state_hidePowerGrid)));
 			savedInstanceState = null; // not needed any more...
 		}
 	}
@@ -640,6 +642,7 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 			analyzerSurface.setPeakHoldEnabled(preferences.getBoolean(getString(R.string.pref_peakHold), false));
 			analyzerSurface.setFftRatio(Float.valueOf(preferences.getString(getString(R.string.pref_spectrumWaterfallRatio), "0.5")));
 			analyzerSurface.setFontSize(Integer.valueOf(preferences.getString(getString(R.string.pref_fontSize),"2")));
+			analyzerSurface.setHidePowerGrid(preferences.getBoolean(getString(R.string.pref_hidePowerGrid), true));
 			analyzerSurface.setShowDebugInformation(preferences.getBoolean(getString(R.string.pref_showDebugInformation), false));
 		}
 

@@ -47,6 +47,7 @@
     <string name="save_state_virtualSampleRate">save_state_virtualSampleRate</string>
     <string name="save_state_minDB">save_state_minDB</string>
     <string name="save_state_maxDB">save_state_maxDB</string>
+    <string name="save_state_hidePowerGrid">save_state_hidePowerGrid</string>
     <string name="pref_frequency">pref_frequency</string>
     <string name="pref_sampleRate">pref_sampleRate</string>
     <string name="pref_tune_to_frequency_unit">pref_tune_to_frequency_unit</string>
@@ -189,6 +190,11 @@
     <string name="pref_fontSize_title">Font size</string>
     <string name="pref_fontSize_default">1</string>
     <string name="pref_fontSize_summ">Font size is set to: %s</string>
+    <string name="pref_hidePowerGrid">pref_hidePowerGrid</string>
+    <string name="pref_hidePowerGrid_title">Hide the power grid</string>
+    <string name="pref_hidePowerGrid_on">Power grid is hidden</string>
+    <string name="pref_hidePowerGrid_off">Power grid is shown</string>
+    <string name="pref_hidePowerGrid_default">true</string>
     <string name="pref_showDebugInformation">pref_showDebugInformation</string>
     <string name="pref_showDebugInformation_title">Show debug information</string>
     <string name="pref_showDebugInformation_summ_on">Debug information is shown</string>
