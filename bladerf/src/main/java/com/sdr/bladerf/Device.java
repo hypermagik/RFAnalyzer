@@ -35,7 +35,7 @@ public class Device {
     private static final int maxSampleRate = 61440000;
     private static final int firSampleRate = 2083334;
 
-    private static final int[] supportedSampleRates = {520834, 1000000, 2000000, 4000000, 8000000, 10000000, 20000000, 30000000, 40000000, 61440000};
+    private static final int[] supportedSampleRates = {520834, 1000000, 2000000, 4000000, 8000000, 10000000, 20000000, 23040000, 30000000, 40000000, 61440000};
 
     private static final long minFrequency = 70000000L;
     private static final long maxFrequency = 6000000000L;
