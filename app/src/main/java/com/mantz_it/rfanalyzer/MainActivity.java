@@ -1014,8 +1014,8 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 					dialog.dismiss();
 
 					final int sampleRate = sampleRates[which];
-                    source.setSampleRate(sampleRate);
-                })
+                    updateSampleRate(sampleRate);
+				})
 				.show();
 	}
 
@@ -1049,7 +1049,7 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 			}
 
 			// adjust sample rate of the source:
-			source.setSampleRate(Demodulator.INPUT_RATE);
+			updateSampleRate(Demodulator.INPUT_RATE);
 
 			// Verify that the source supports the sample rate:
 			if(source.getSampleRate() != Demodulator.INPUT_RATE) {
@@ -1150,7 +1150,7 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 									bandwidth *= 1000;
 								if(bandwidth > source.getMaxSampleRate())
 									bandwidth = source.getMaxFrequency();
-								source.setSampleRate(source.getNextHigherOptimalSampleRate((int)bandwidth));
+								updateSampleRate(source.getNextHigherOptimalSampleRate((int)bandwidth));
 								analyzerSurface.setVirtualSampleRate((int)bandwidth);
 							}
 							// safe preferences:
@@ -1608,7 +1608,7 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 
 						// Set the sample rate (only if demodulator is off):
 						if(demodulationMode == Demodulator.DEMODULATION_OFF)
-							source.setSampleRate((Integer)sp_sampleRate.getSelectedItem());
+							updateSampleRate((Integer)sp_sampleRate.getSelectedItem());
 
 						// Open file and start recording:
 						recordingFile = new File(externalDir + "/" + RECORDING_DIR + "/" + filename);
@@ -1776,13 +1776,36 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 	}
 
 	public boolean updateSampleRate(int newSampleRate) {
-		if(source != null) {
-			if(scheduler == null || !scheduler.isRecording()) {
-				source.setSampleRate(newSampleRate);
+		if (source == null) {
+			return false;
+		}
+
+		if (scheduler != null && scheduler.isRecording()) {
+			return false;
+		}
+
+		final boolean restartAnalyzer = running && source instanceof BladeRFSource;
+		if (restartAnalyzer) {
+			final boolean sampleRateChanged = newSampleRate != source.getSampleRate();
+			if (!sampleRateChanged) {
 				return true;
 			}
+
+			stopAnalyzer();
 		}
-		return false;
+
+		source.setSampleRate(newSampleRate);
+
+		if (restartAnalyzer || analyzerSurface.getVirtualSampleRate() != newSampleRate) {
+			analyzerSurface.setVirtualSampleRate(newSampleRate);
+			analyzerSurface.setVirtualFrequency(source.getFrequency());
+		}
+
+		if (restartAnalyzer) {
+			startAnalyzer();
+		}
+
+		return true;
 	}
 
 	@Override
