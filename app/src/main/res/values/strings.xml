@@ -14,6 +14,7 @@
     <string name="action_demodulation_lsb">Demodulation: LSB</string>
     <string name="action_demodulation_usb">Demodulation: USB</string>
     <string name="action_setFrequency">Set Frequency</string>
+    <string name="action_setSampleRate">Set Sample Rate</string>
     <string name="action_setGain">Set Gain</string>
     <string name="action_recordOff">Record</string>
     <string name="action_recordOn">Stop recording</string>

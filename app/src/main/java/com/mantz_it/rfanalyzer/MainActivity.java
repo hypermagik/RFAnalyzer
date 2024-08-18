@@ -252,6 +252,7 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 
 	@Override
 	protected void onSaveInstanceState(Bundle outState) {
+		super.onSaveInstanceState(outState);
 		outState.putBoolean(getString(R.string.save_state_running), running);
 		outState.putInt(getString(R.string.save_state_demodulatorMode), demodulationMode);
 		if(analyzerSurface != null) {
@@ -296,6 +297,9 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 		}
 		else if (id==R.id.action_setFrequency) {
 			tuneToFrequency();
+		}
+		else if (id==R.id.action_setSampleRate) {
+			showSampleRateDialog();
 		}
 		else if (id==R.id.action_setGain) {
 			adjustGain();
@@ -972,6 +976,43 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 						dialog.dismiss();
 					}
 				})
+				.show();
+	}
+
+	/**
+	 * Will pop up a dialog to let the user choose the sample rate.
+	 */
+	private void showSampleRateDialog() {
+		if (source == null) {
+			Toast.makeText(MainActivity.this, "No source is available", Toast.LENGTH_LONG).show();
+			return;
+		}
+
+		final int[] sampleRates = source.getSupportedSampleRates();
+		if (sampleRates.length == 0) {
+			Toast.makeText(MainActivity.this, "Source has no supported sample rates", Toast.LENGTH_LONG).show();
+			return;
+		}
+
+		final CharSequence[] sampleRateStrings = new CharSequence[sampleRates.length];
+		final int currentSampleRate = source.getSampleRate();
+		int checkedSampleRate = -1;
+
+		for (int i = 0; i < sampleRates.length; i++) {
+			if (sampleRates[i] == currentSampleRate) {
+				checkedSampleRate = i;
+			}
+			sampleRateStrings[i] = String.format(Locale.getDefault(), "%.3f Msps", sampleRates[i] / 1000000.f);
+		}
+
+		new AlertDialog.Builder(this)
+				.setTitle("Select sample rate:")
+				.setSingleChoiceItems(sampleRateStrings, checkedSampleRate, (dialog, which) -> {
+					dialog.dismiss();
+
+					final int sampleRate = sampleRates[which];
+                    source.setSampleRate(sampleRate);
+                })
 				.show();
 	}
 
