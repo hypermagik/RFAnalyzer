@@ -546,7 +546,7 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 						createSource();
 					}
 					else {
-						long freq = Integer.valueOf(preferences.getString(getString(R.string.pref_filesource_frequency), "97000000"));
+						long freq = Long.valueOf(preferences.getString(getString(R.string.pref_filesource_frequency), "97000000"));
 						int sampRate = Integer.valueOf(preferences.getString(getString(R.string.pref_filesource_sampleRate), "2000000"));
 						String fileName = preferences.getString(getString(R.string.pref_filesource_file), "");
 						int fileFormat = Integer.valueOf(preferences.getString(getString(R.string.pref_filesource_format), "0"));
@@ -658,7 +658,7 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 			case FILE_SOURCE:
 						// Create IQ Source (filesource)
 						try {
-							frequency = Integer.valueOf(preferences.getString(getString(R.string.pref_filesource_frequency), "97000000"));
+							frequency = Long.valueOf(preferences.getString(getString(R.string.pref_filesource_frequency), "97000000"));
 							sampleRate = Integer.valueOf(preferences.getString(getString(R.string.pref_filesource_sampleRate), "2000000"));
 						} catch (NumberFormatException e) {
 							this.runOnUiThread(new Runnable() {
