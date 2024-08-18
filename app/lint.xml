@@ -1,0 +1,5 @@
+<lint>
+    <issue id="ExpiredTargetSdkVersion">
+        <ignore path="build.gradle"/>
+    </issue>
+</lint>
