@@ -4,16 +4,16 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Rect;
-import android.graphics.Shader;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+
+import java.util.Locale;
 
 /**
  * <h1>RF Analyzer - Analyzer Surface</h1>
@@ -60,6 +60,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 	private Paint waterfallLinePaint = null;// Paint object to draw one waterfall pixel
 	private Paint textPaint = null;			// Paint object to draw text on the canvas
 	private Paint textSmallPaint = null;	// Paint object to draw small text on the canvas
+	private Paint backgroundLinePaint = null;		// Paint object to draw the background grid lines
 	private Paint channelSelectorPaint = null;// Paint object to draw the area of the channel
 	private Paint channelWidthSelectorPaint = null;// Paint object to draw the borders of the channel
 	private Paint squelchPaint = null;		// Paint object to draw the squelch selector
@@ -152,16 +153,18 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 		this.blackPaint = new Paint();
 		this.blackPaint.setColor(Color.BLACK);
 		this.fftPaint = new Paint();
-		this.fftPaint.setColor(Color.BLUE);
+		this.fftPaint.setColor(Color.rgb(0.35f, 0.75f, 1.f));
 		this.fftPaint.setStyle(Paint.Style.FILL);
 		this.peakHoldPaint = new Paint();
-		this.peakHoldPaint.setColor(Color.YELLOW);
+		this.peakHoldPaint.setColor(Color.rgb(1.f, 0.75f, 0.35f));
 		this.textPaint = new Paint();
 		this.textPaint.setColor(Color.WHITE);
 		this.textPaint.setAntiAlias(true);
 		this.textSmallPaint = new Paint();
 		this.textSmallPaint.setColor(Color.WHITE);
 		this.textSmallPaint.setAntiAlias(true);
+		this.backgroundLinePaint = new Paint();
+		this.backgroundLinePaint.setColor(Color.rgb(0.3f, 0.3f, 0.3f));
 		this.waterfallLinePaint = new Paint();
 		this.channelSelectorPaint = new Paint();
 		this.channelSelectorPaint.setColor(Color.WHITE);
@@ -541,8 +544,6 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 		if(fftRatio != this.fftRatio) {
 			this.fftRatio = fftRatio;
 			createWaterfallLineBitmaps();	// recreate the waterfall bitmaps
-			// Recreate the shaders:
-			this.fftPaint.setShader(new LinearGradient(0, 0, 0, getFftHeight(), Color.WHITE, Color.BLUE, Shader.TileMode.MIRROR));
 		}
 	}
 
@@ -636,9 +637,6 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 		if(this.width != width || this.height != height) {
 			this.width = width;
 			this.height = height;
-
-			// Recreate the shaders:
-			this.fftPaint.setShader(new LinearGradient(0, 0, 0, getFftHeight(), Color.WHITE, Color.BLUE, Shader.TileMode.MIRROR));
 
 			// Recreate the waterfall bitmaps:
 			this.createWaterfallLineBitmaps();
@@ -1076,6 +1074,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 			synchronized (this.getHolder()) {
 				if(c != null) {
 					// Draw all the components
+					drawFFTBackground(c);
 					drawFFT(c, mag, start, end);
 					drawWaterfall(c);
 					drawFrequencyGrid(c);
@@ -1131,9 +1130,6 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 		// Get a canvas from the bitmap of the current waterfall line and clear it:
 		Canvas newline = new Canvas(waterfallLines[waterfallLinesTopIndex]);
 		newline.drawColor(Color.BLACK);
-
-		// Clear the fft area in the canvas:
-		c.drawRect(0, 0, width, getFftHeight(), blackPaint);
 
 		// The start position to draw is either 0 or greater 0, if start is negative:
 		int firstPixel = start>=0 ? 0 : (int)((start * -1) / samplesPerPx);
@@ -1252,12 +1248,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 		float minFreeSpaceBetweenText = bounds.width();
 
 		// Calculate span of a minor tick (must be a power of 10KHz)
-		int tickSize = 10;	// we start with 10KHz
-		float helperVar = virtualSampleRate / 20f;
-		while(helperVar > 100) {
-			helperVar = helperVar / 10f;
-			tickSize = tickSize * 10;
-		}
+		int tickSize = (int) Math.pow(10, 1 + Math.ceil(Math.log10(virtualSampleRate / 2000.)));
 
 		// Calculate pixel width of a minor tick
 		float pixelPerMinorTick = width / (virtualSampleRate/(float)tickSize);
@@ -1294,6 +1285,8 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 					c.drawText(textStr, textPos, getFftHeight() - tickHeight, textPaint);
 					lastTextEndPos = textPos + bounds.width();
 				}
+				// Draw the tick line:
+				c.drawLine((float) Math.ceil(tickPos), getFftHeight(), (float) Math.ceil(tickPos), getFftHeight() - tickHeight, textPaint);
 			} else if(tickFreq % (tickSize*5) == 0) {
 				// Half major tick (5x <tickSize> KHz)
 				tickHeight = (float) (getGridSize() / 3.0);
@@ -1315,13 +1308,13 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 						lastTextEndPos = textPos + bounds.width();
 					}
 				}
+				// Draw the tick line:
+				c.drawLine((float) Math.ceil(tickPos), getFftHeight(), (float) Math.ceil(tickPos), getFftHeight() - tickHeight, textPaint);
 			} else {
 				// Minor tick (<tickSize> KHz)
 				tickHeight = (float) (getGridSize() / 4.0);
 			}
 
-			// Draw the tick line:
-			c.drawLine(tickPos, getFftHeight(), tickPos, getFftHeight() - tickHeight, textPaint);
 			tickFreq += tickSize;
 			tickPos += pixelPerMinorTick;
 		}
@@ -1372,6 +1365,67 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 	}
 
 	/**
+	 * This method will draw background power and frequency grid lines into the canvas
+	 *
+	 * @param c				canvas of the surface view
+	 */
+	private void drawFFTBackground(Canvas c) {
+		// Clear the fft area in the canvas:
+		c.drawRect(0, 0, width, getFftHeight(), blackPaint);
+
+		// Calculate pixel height of a minor tick (1dB)
+		float pixelPerMinorTick = getFftHeight() / (maxDB - minDB);
+
+		// Draw the lines from the top to the bottom. Stop as soon as we interfere with the frequency scale
+		int db = (int) maxDB;
+		float y = (maxDB - db) * pixelPerMinorTick;
+		for (; db > minDB; db--) {
+			if (db % 10 == 0) {
+				c.drawLine(0, (float) Math.ceil(y), getWidth(), (float) Math.ceil(y), backgroundLinePaint);
+			}
+			y += pixelPerMinorTick;
+			// Stop if we interfere with the frequency grid
+			if (y > getFftHeight() - getGridSize()) {
+				break;
+			}
+		}
+
+		// Draw the frequency lines
+		int tickSize = (int) Math.pow(10, 1 + Math.ceil(Math.log10(virtualSampleRate / 2000.)));
+
+		// Calculate pixel width of a minor tick
+		pixelPerMinorTick = width / (virtualSampleRate / (float) tickSize);
+
+		// Calculate the frequency at the left most point of the fft:
+		long startFrequency;
+		if (displayRelativeFrequencies) {
+			startFrequency = (long) (-virtualSampleRate / 2.0);
+		} else {
+			startFrequency = (long) (virtualFrequency - virtualSampleRate / 2.0);
+		}
+
+		// Calculate the frequency and position of the first Tick (ticks are every <tickSize> KHz)
+		long tickFreq = (long) (Math.ceil((double) startFrequency / (float) tickSize) * tickSize);
+		float tickPos = pixelPerMinorTick / (float) tickSize * (tickFreq - startFrequency);
+		final float minFreeSpaceBetweenText = textPaint.measureText("--");
+		float lastMajorTick = tickPos;
+
+		// Draw the ticks
+		for (int i = 0; i < virtualSampleRate / (float) tickSize; i++) {
+			if (tickFreq % (tickSize * 10L) == 0) {
+				c.drawLine((float) Math.ceil(tickPos), 0, (float) Math.ceil(tickPos), getFftHeight(), backgroundLinePaint);
+				lastMajorTick = tickPos;
+			} else if(tickFreq % (tickSize * 5L) == 0) {
+				if (tickPos - lastMajorTick >= minFreeSpaceBetweenText * 2) {
+					c.drawLine((float) Math.ceil(tickPos), 0, (float) Math.ceil(tickPos), getFftHeight(), backgroundLinePaint);
+				}
+			}
+			tickFreq += tickSize;
+			tickPos += pixelPerMinorTick;
+		}
+	}
+
+	/**
 	 * This method will draw the power grid into the canvas
 	 *
 	 * @param c				canvas of the surface view
@@ -1401,7 +1455,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 				// Minor tick
 				tickWidth = (float) (getGridSize() / 5.0);
 			}
-			c.drawLine(0, tickPos, tickWidth, tickPos, textPaint);
+			c.drawLine(0, (float) Math.ceil(tickPos), tickWidth, (float) Math.ceil(tickPos), textPaint);
 			tickPos += pixelPerMinorTick;
 
 			// stop if we interfere with the frequency grid:
