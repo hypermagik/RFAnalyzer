@@ -966,7 +966,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 	 * @return number of pixels (in vertical direction) of one line in the waterfall plot
 	 */
 	private int getPixelPerWaterfallLine() {
-		return 1;
+		return 2;
 	}
 
 	/**
