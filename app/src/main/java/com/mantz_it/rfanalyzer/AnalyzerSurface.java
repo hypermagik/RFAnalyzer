@@ -567,7 +567,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 			this.waterfallLinesTopIndex = 0;
 			this.waterfallLines = new Bitmap[getWaterfallHeight() / getPixelPerWaterfallLine()];
 			for (int i = 0; i < waterfallLines.length; i++)
-				waterfallLines[i] = Bitmap.createBitmap(width, getPixelPerWaterfallLine(), Bitmap.Config.ARGB_8888);
+				waterfallLines[i] = Bitmap.createBitmap(width, getPixelPerWaterfallLine(), Bitmap.Config.RGB_565);
 		}
 	}
 
@@ -579,23 +579,23 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 			switch (this.waterfallColorMapType) {
 				case COLORMAP_JET:	// BLUE(0,0,1) - LIGHT_BLUE(0,1,1) - GREEN(0,1,0) - YELLOW(1,1,0) - RED(1,0,0)
 					this.waterfallColorMap = new int[256*4];
-					for (int i = 0; i < 256; i++) waterfallColorMap[i]     = Color.argb(0xff, 0, i, 255);
-					for (int i = 0; i < 256; i++) waterfallColorMap[256+i] = Color.argb(0xff, 0, 255, 255-i);
-					for (int i = 0; i < 256; i++) waterfallColorMap[512+i] = Color.argb(0xff, i, 255, 0);
-					for (int i = 0; i < 256; i++) waterfallColorMap[768+i] = Color.argb(0xff, 255, 255-i, 0);
+					for (int i = 0; i < 256; i++) waterfallColorMap[i]     = Color.rgb(0, i, 255);
+					for (int i = 0; i < 256; i++) waterfallColorMap[256+i] = Color.rgb(0, 255, 255-i);
+					for (int i = 0; i < 256; i++) waterfallColorMap[512+i] = Color.rgb(i, 255, 0);
+					for (int i = 0; i < 256; i++) waterfallColorMap[768+i] = Color.rgb(255, 255-i, 0);
 					break;
 				case COLORMAP_HOT:	// BLACK (0,0,0) - RED (1,0,0) - YELLOW (1,1,0) - WHITE (1,1,1)
 					this.waterfallColorMap = new int[256*3];
-					for (int i = 0; i < 256; i++) waterfallColorMap[i]     = Color.argb(0xff, i, 0, 0);
-					for (int i = 0; i < 256; i++) waterfallColorMap[256+i] = Color.argb(0xff, 255, i, 0);
-					for (int i = 0; i < 256; i++) waterfallColorMap[512+i] = Color.argb(0xff, 255, 255, i);
+					for (int i = 0; i < 256; i++) waterfallColorMap[i]     = Color.rgb(i, 0, 0);
+					for (int i = 0; i < 256; i++) waterfallColorMap[256+i] = Color.rgb(255, i, 0);
+					for (int i = 0; i < 256; i++) waterfallColorMap[512+i] = Color.rgb(255, 255, i);
 					break;
 				case COLORMAP_OLD:
 					this.waterfallColorMap = new int[512];
 					for (int i = 0; i < 512; i++) {
 						int blue = i <= 255 ? i : 511 - i;
 						int red = i <= 255 ? 0 : i - 256;
-						waterfallColorMap[i] = Color.argb(0xff, red, 0, blue);
+						waterfallColorMap[i] = Color.rgb(red, 0, blue);
 					}
 					break;
 				case COLORMAP_GQRX:
