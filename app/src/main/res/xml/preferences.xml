@@ -120,12 +120,13 @@
             android:entries="@array/pref_averaging_entries"
             android:entryValues="@array/pref_averaging_values"
             android:defaultValue="@string/pref_averaging_default" />
-        <SwitchPreference
+        <ListPreference
             android:key="@string/pref_peakHold"
             android:title="@string/pref_peakHold_title"
-            android:summaryOn="@string/pref_peakHold_summ_on"
-            android:summaryOff="@string/pref_peakHold_summ_off"
-            android:defaultValue="false" />
+            android:dialogTitle="@string/pref_peakHold_title"
+            android:entries="@array/pref_peakHold_entries"
+            android:entryValues="@array/pref_peakHold_values"
+            android:defaultValue="30" />
         <SwitchPreference
             android:key="@string/pref_autostart"
             android:title="@string/pref_autostart_title"

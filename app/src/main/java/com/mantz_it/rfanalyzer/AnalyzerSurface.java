@@ -99,8 +99,10 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 	private int averageLength = 0;				// indicates whether or not peak hold points should be drawn
 	private float[][] historySamples;			// array that holds the last averageLength fft sample packets
 	private int oldesthistoryIndex;				// index in historySamples which holds the oldest samples
-	private boolean peakHoldEnabled = false;	// indicates whether peak hold should be enabled or disabled
 	private float[] peaks;						// peak hold points
+	private float[][] peakHoldHistory;			// array that holds the last sample for peak hold
+	private int peakHoldHistoryIndex = 0;		// last index in peakHoldHistory
+	private int peakHoldHistoryLength = 30;		// number of samples in peakHoldHistory
 
 	// virtual frequency and sample rate indicate the current visible viewport of the fft. they vary from
 	// the actual values when the user does scrolling and zooming
@@ -166,7 +168,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 		this.fftPaint.setColor(Color.rgb(0.35f, 0.75f, 1.f));
 		this.fftPaint.setStyle(Paint.Style.FILL);
 		this.peakHoldPaint = new Paint();
-		this.peakHoldPaint.setColor(Color.rgb(1.f, 0.75f, 0.35f));
+		this.peakHoldPaint.setColor(Color.YELLOW);
 		this.textPaint = new Paint();
 		this.textPaint.setColor(Color.WHITE);
 		this.textPaint.setAntiAlias(true);
@@ -369,10 +371,10 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 	}
 
 	/**
-	 * @param enable	true turns peak hold on; false turns it off
+	 * @param length	the numbers of history samples to use when computing the peaks
 	 */
-	public void setPeakHoldEnabled(boolean enable) {
-		this.peakHoldEnabled = enable;
+	public void setPeakHoldHistoryLength(int length) {
+		peakHoldHistoryLength = length;
 	}
 
 	/**
@@ -1053,23 +1055,39 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 		}
 
 		// Update Peak Hold
-		if(peakHoldEnabled) {
-			// First verify that the array is initialized correctly:
-			if(peaks == null || peaks.length != mag.length) {
+		if (peakHoldHistoryLength > 0) {
+			if (peakHoldHistory == null ||
+					peakHoldHistory.length != mag.length ||
+					peakHoldHistory[0].length != peakHoldHistoryLength ||
+					frequency != lastFrequency ||
+					sampleRate != lastSampleRate) {
 				peaks = new float[mag.length];
-				for (int i = 0; i < peaks.length; i++)
-					peaks[i] = -999999F;    // == no peak ;)
+				peakHoldHistory = new float[mag.length][peakHoldHistoryLength];
+				for (int i = 0; i < mag.length; i++) {
+					for (int j = 0; j < peakHoldHistoryLength; j++) {
+						peakHoldHistory[i][j] = mag[i];
+					}
+				}
+				peakHoldHistoryIndex = 0;
+			} else {
+				for (int i = 0; i < mag.length; i++) {
+					peakHoldHistory[i][peakHoldHistoryIndex] = mag[i];
+				}
+				peakHoldHistoryIndex = (peakHoldHistoryIndex + 1) % peakHoldHistoryLength;
 			}
-			// Check if the frequency or sample rate of the incoming signals is different from the ones before:
-			if(frequency != lastFrequency || sampleRate != lastSampleRate) {
-				for (int i = 0; i < peaks.length; i++)
-					peaks[i] = -999999F;    // reset peaks. We could also shift and scale. But for now they are simply reset.
+
+			for (int i = 0; i < mag.length; i++) {
+				float max = peakHoldHistory[i][0];
+				for (int j = 1; j < peakHoldHistoryLength; j++) {
+					if (peakHoldHistory[i][j] > max) {
+						max = peakHoldHistory[i][j];
+					}
+				}
+				peaks[i] = max;
 			}
-			// Update the peaks:
-			for (int i = 0; i < mag.length; i++)
-				peaks[i] = Math.max(peaks[i], mag[i]);
 		} else {
 			peaks = null;
+			peakHoldHistory = null;
 		}
 
 		// Update squelchSatisfied:
@@ -1141,6 +1159,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 	 */
 	private void drawFFT(Canvas c, float[] mag, int start, int end) {
 		float previousY		 = fftDataHeight;	// y coordinate of the previously processed pixel (only used with drawing type line)
+		float previousPeakY	 = fftDataHeight;	// y coordinate of the previously processed peak hold pixel
 		float currentY;							// y coordinate of the currently processed pixel
 		float samplesPerPx 	= (float) (end-start) / (float) width;		// number of fft samples per one pixel
 		float dbDiff 		= maxDB - minDB;
@@ -1214,11 +1233,18 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 			}
 
 			// Peak:
-			if(peaks != null) {
-				if(peakAvg > minDB) {
-					peakAvg = fftDataHeight - (peakAvg - minDB) * dbWidth;
-					if(peakAvg > 0 )
-						c.drawPoint(i,peakAvg,peakHoldPaint);
+			if (peaks != null) {
+				if (peakAvg > minDB) {
+					float currentPeakY = fftDataHeight - (peakAvg - minDB) * dbWidth;
+					if (currentPeakY < 0) {
+						currentPeakY = 0;
+					}
+					c.drawLine(i - 1, previousPeakY, i, currentPeakY, peakHoldPaint);
+					previousPeakY = currentPeakY;
+					// We have to draw the last line to the bottom if we're in the last round:
+					if (i + 1 == lastPixel) {
+						c.drawLine(i, previousPeakY, i + 1, fftDataHeight, peakHoldPaint);
+					}
 				}
 			}
 

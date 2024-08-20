@@ -639,7 +639,7 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 			analyzerSurface.setWaterfallColorMapType(Integer.valueOf(preferences.getString(getString(R.string.pref_colorMapType),"4")));
 			analyzerSurface.setFftDrawingType(Integer.valueOf(preferences.getString(getString(R.string.pref_fftDrawingType),"2")));
 			analyzerSurface.setAverageLength(Integer.valueOf(preferences.getString(getString(R.string.pref_averaging),"0")));
-			analyzerSurface.setPeakHoldEnabled(preferences.getBoolean(getString(R.string.pref_peakHold), false));
+			analyzerSurface.setPeakHoldHistoryLength(Integer.valueOf(preferences.getString(getString(R.string.pref_peakHold), "30")));
 			analyzerSurface.setFftRatio(Float.valueOf(preferences.getString(getString(R.string.pref_spectrumWaterfallRatio), "0.5")));
 			analyzerSurface.setFontSize(Integer.valueOf(preferences.getString(getString(R.string.pref_fontSize),"2")));
 			analyzerSurface.setHidePowerGrid(preferences.getBoolean(getString(R.string.pref_hidePowerGrid), true));
