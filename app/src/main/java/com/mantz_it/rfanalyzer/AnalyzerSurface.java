@@ -61,8 +61,9 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 	private Paint textPaint = null;			// Paint object to draw text on the canvas
 	private Paint textSmallPaint = null;	// Paint object to draw small text on the canvas
 	private Paint backgroundLinePaint = null;		// Paint object to draw the background grid lines
-	private Paint channelSelectorPaint = null;// Paint object to draw the area of the channel
-	private Paint channelWidthSelectorPaint = null;// Paint object to draw the borders of the channel
+	private Paint channelSelectorPaint = null;		// Paint object to draw the area of the channel
+	private Paint channelCenterPaint = null;		// Paint object to draw the center of the channel
+	private Paint channelWidthSelectorPaint = null;	// Paint object to draw the borders of the channel
 	private Paint squelchPaint = null;		// Paint object to draw the squelch selector
 	private int width;						// current width (in pixels) of the SurfaceView
 	private int height;						// current height (in pixels) of the SurfaceView
@@ -140,7 +141,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 
 	Rect textBounds = new Rect();
 
-	public static final int STROKE_WIDTH_NORMAL = 1;
+	public static final int STROKE_WIDTH_NORMAL = 2;
 	public static final int STROKE_WIDTH_THICK = 5;
 	public static final int FONT_SIZE_SMALL = 1;
 	public static final int FONT_SIZE_MEDIUM = 2;
@@ -177,6 +178,8 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 		this.waterfallLinePaint = new Paint();
 		this.channelSelectorPaint = new Paint();
 		this.channelSelectorPaint.setColor(Color.WHITE);
+		this.channelCenterPaint = new Paint();
+		this.channelCenterPaint.setColor(Color.rgb(1.f, 0.5f, 0.5f));
 		this.channelWidthSelectorPaint = new Paint();
 		this.channelWidthSelectorPaint.setColor(Color.WHITE);
 		this.squelchPaint = new Paint();
@@ -777,7 +780,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 				&& touchedFrequency < channelFrequency + channelFrequencyVariation
 				&& touchedFrequency > channelFrequency - channelFrequencyVariation) {
 			this.scrollType = SCROLLTYPE_CHANNEL_FREQUENCY;
-			this.channelSelectorPaint.setStrokeWidth(STROKE_WIDTH_THICK);
+			this.channelCenterPaint.setStrokeWidth(STROKE_WIDTH_THICK);
 		}
 
 		// if the user touched the left channel selector border the user wants to adjust the channel width:
@@ -943,6 +946,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 		if(event.getAction() == MotionEvent.ACTION_UP) {
 			this.squelchPaint.setStrokeWidth(STROKE_WIDTH_NORMAL);
 			this.channelSelectorPaint.setStrokeWidth(STROKE_WIDTH_NORMAL);
+			this.channelCenterPaint.setStrokeWidth(STROKE_WIDTH_NORMAL);
 			this.channelWidthSelectorPaint.setStrokeWidth(STROKE_WIDTH_NORMAL);
 		}
 
@@ -1102,8 +1106,9 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 					drawFFTBackground(c);
 					drawFrequencyGrid(c);
 					drawFFT(c, mag, start, end);
-					drawWaterfall(c);
+					drawChannelSelector(c);
 					drawPowerGrid(c);
+					drawWaterfall(c);
 					drawPerformanceInfo(c, frameRate, load, averageSignalStrengh);
 				} else
 					Log.d(LOGTAG, "draw: Canvas is null.");
@@ -1343,50 +1348,63 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 			tickFreq += tickSize;
 			tickPos += pixelPerMinorTick;
 		}
+	}
 
+	/**
+	 * This method will draw the channel selector into the canvas
+	 *
+	 * @param c				canvas of the surface view
+	 */
+	private void drawChannelSelector(Canvas c) {
 		// If demodulation is activated: draw channel selector:
-		if(demodulationEnabled) {
-			float pxPerHz = width / (float) virtualSampleRate;
-			float channelPosition = width/2 + pxPerHz * (channelFrequency - virtualFrequency);
-			float leftBorder = channelPosition - pxPerHz * channelWidth;
-			float rightBorder = channelPosition + pxPerHz * channelWidth;
-			float dbWidth = fftDataHeight / (maxDB - minDB);
-			float squelchPosition = fftDataHeight - (squelch - minDB) * dbWidth;
-
-			// draw half transparent channel area:
-			channelSelectorPaint.setAlpha(0x7f);
-			if(showLowerBand)
-				c.drawRect(leftBorder, 0, channelPosition, squelchPosition, channelSelectorPaint);
-			if(showUpperBand)
-				c.drawRect(channelPosition, 0, rightBorder, squelchPosition, channelSelectorPaint);
-
-			// draw center and borders:
-			channelSelectorPaint.setAlpha(0xff);
-			c.drawLine(channelPosition, fftDataHeight, channelPosition, 0, channelSelectorPaint);
-			if (showLowerBand) {
-				c.drawLine(leftBorder, fftDataHeight, leftBorder, 0, channelWidthSelectorPaint);
-				c.drawLine(leftBorder, squelchPosition, channelPosition, squelchPosition, squelchPaint);
-			}
-			if (showUpperBand) {
-				c.drawLine(rightBorder, fftDataHeight, rightBorder, 0, channelWidthSelectorPaint);
-				c.drawLine(channelPosition, squelchPosition, rightBorder, squelchPosition, squelchPaint);
-			}
-
-			// draw squelch text above the squelch selector:
-			textStr = String.format("%2.1f dB", squelch);
-			textSmallPaint.getTextBounds(textStr, 0, textStr.length(), textBounds);
-			c.drawText(textStr, channelPosition - textBounds.width() / 2f, squelchPosition - textBounds.height() * 0.1f, textSmallPaint);
-
-			// draw channel width text below the squelch selector:
-			int shownChannelWidth = 0;
-			if(showLowerBand)
-				shownChannelWidth += channelWidth;
-			if(showUpperBand)
-				shownChannelWidth += channelWidth;
-			textStr = String.format("%d kHz", shownChannelWidth/1000);
-			textSmallPaint.getTextBounds(textStr, 0, textStr.length(), textBounds);
-			c.drawText(textStr, channelPosition - textBounds.width() / 2f, squelchPosition + textBounds.height() * 1.1f, textSmallPaint);
+		if (!demodulationEnabled) {
+			return;
 		}
+
+		float pxPerHz = width / (float) virtualSampleRate;
+		float channelPosition = width / 2 + pxPerHz * (channelFrequency - virtualFrequency);
+		float leftBorder = channelPosition - pxPerHz * channelWidth;
+		float rightBorder = channelPosition + pxPerHz * channelWidth;
+		float dbWidth = fftDataHeight / (maxDB - minDB);
+		float squelchPosition = fftDataHeight - (squelch - minDB) * dbWidth;
+
+		// draw half transparent channel area:
+		channelSelectorPaint.setAlpha(48);
+		if (showLowerBand) {
+			c.drawRect(leftBorder, 0, channelPosition, squelchPosition, channelSelectorPaint);
+		}
+		if (showUpperBand) {
+			c.drawRect(channelPosition, 0, rightBorder, squelchPosition, channelSelectorPaint);
+		}
+
+		// draw center and borders:
+		channelSelectorPaint.setAlpha(255);
+		c.drawLine(channelPosition, fftDataHeight, channelPosition, 0, channelCenterPaint);
+		if (showLowerBand) {
+			c.drawLine(leftBorder, fftDataHeight, leftBorder, 0, channelWidthSelectorPaint);
+			c.drawLine(leftBorder, squelchPosition, channelPosition, squelchPosition, squelchPaint);
+		}
+		if (showUpperBand) {
+			c.drawLine(rightBorder, fftDataHeight, rightBorder, 0, channelWidthSelectorPaint);
+			c.drawLine(channelPosition, squelchPosition, rightBorder, squelchPosition, squelchPaint);
+		}
+
+		// draw squelch text above the squelch selector:
+		String textStr = String.format("%2.1f dB", squelch);
+		textSmallPaint.getTextBounds(textStr, 0, textStr.length(), textBounds);
+		c.drawText(textStr, channelPosition - textBounds.width() / 2f, squelchPosition - textBounds.height() * 0.1f, textSmallPaint);
+
+		// draw channel width text below the squelch selector:
+		int shownChannelWidth = 0;
+		if (showLowerBand) {
+			shownChannelWidth += channelWidth;
+		}
+		if (showUpperBand) {
+			shownChannelWidth += channelWidth;
+		}
+		textStr = String.format("%d kHz", shownChannelWidth / 1000);
+		textSmallPaint.getTextBounds(textStr, 0, textStr.length(), textBounds);
+		c.drawText(textStr, channelPosition - textBounds.width() / 2f, squelchPosition + textBounds.height() * 1.1f, textSmallPaint);
 	}
 
 	/**
