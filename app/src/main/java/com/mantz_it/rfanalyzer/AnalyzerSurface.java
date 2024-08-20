@@ -6,6 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.support.annotation.NonNull;
 import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
@@ -44,7 +45,8 @@ import java.util.Locale;
  */
 public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callback,
 															ScaleGestureDetector.OnScaleGestureListener,
-															GestureDetector.OnGestureListener {
+															GestureDetector.OnGestureListener,
+															GestureDetector.OnDoubleTapListener {
 
 	// Gesture detectors to detect scaling, scrolling ...
 	private ScaleGestureDetector scaleGestureDetector = null;
@@ -77,6 +79,8 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 	private static final String LOGTAG = "AnalyzerSurface";
 	private static final int MIN_DB = -130;	// Smallest dB value the vertical scale can start
 	private static final int MAX_DB = 10;	// Highest dB value the vertical scale can start
+	private static final int DEFAULT_MIN_DB = -115;	// Smallest dB value the vertical scale will start
+	private static final int DEFAULT_MAX_DB = -45;	// Highest dB value the vertical scale will start
 	private static final int MIN_VIRTUAL_SAMPLERATE = 64;	// Smallest virtual sample rate
 
 	private int[] waterfallColorMap = null;		// Colors used to draw the waterfall plot.
@@ -103,8 +107,8 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 	// the actual values when the user does scrolling and zooming
 	private long virtualFrequency = -1;		// Center frequency of the fft (baseband) AS SHOWN ON SCREEN
 	private int virtualSampleRate = -1;		// Sample Rate of the fft AS SHOWN ON SCREEN
-	private float minDB = -115;				// Lowest dB on the scale
-	private float maxDB = -50;				// Highest dB on the scale
+	private float minDB = DEFAULT_MIN_DB;	// Lowest dB on the scale
+	private float maxDB = DEFAULT_MAX_DB;	// Highest dB on the scale
 	private long lastFrequency;				// Center frequency of the last packet of fft samples
 	private int lastSampleRate;				// Sample rate of the last packet of fft samples
 
@@ -884,6 +888,27 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 		return true;
 	}
 //------------------- </OnGestureListener> ----------------------------------//
+
+//------------------- <OnDoubleTapListener> -----------------------------------//
+	@Override
+	public boolean onSingleTapConfirmed(@NonNull MotionEvent motionEvent) {
+		return true;
+	}
+
+	@Override
+	public boolean onDoubleTap(@NonNull MotionEvent motionEvent) {
+		minDB = DEFAULT_MIN_DB;
+		maxDB = DEFAULT_MAX_DB;
+		setVirtualSampleRate(source.getSampleRate());
+		setVirtualFrequency(source.getFrequency());
+		return true;
+	}
+
+	@Override
+	public boolean onDoubleTapEvent(@NonNull MotionEvent motionEvent) {
+		return true;
+	}
+//------------------- <OnDoubleTapListener> -----------------------------------//
 
 	@Override
 	public boolean onTouchEvent(MotionEvent event) {
