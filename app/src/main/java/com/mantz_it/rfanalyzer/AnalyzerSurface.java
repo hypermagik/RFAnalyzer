@@ -716,7 +716,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 			// Zoom vertical if enabled and focus in the left grid area or if decoupled axis is deactivated:
 			if (verticalZoomEnabled && (!decoupledAxis || detector.getFocusX() <= gridSize * 1.5)) {
 				float yScale = detector.getCurrentSpanY() / detector.getPreviousSpanY();
-				float dBFocus = maxDB - (maxDB - minDB) * (detector.getFocusY() / fftHeight);
+				float dBFocus = maxDB - (maxDB - minDB) * (detector.getFocusY() / fftDataHeight);
 				float newMinDB = Math.min(Math.max(dBFocus - (dBFocus - minDB) / yScale, MIN_DB), MAX_DB - 10);
 				float newMaxDB = Math.min(Math.max(dBFocus - (dBFocus - maxDB) / yScale, newMinDB + 10), MAX_DB);
 				this.setDBScale(newMinDB, newMaxDB);
@@ -757,7 +757,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 	public boolean onDown(MotionEvent e) {
 		// Find out which type of scrolling is requested:
 		float hzPerPx = virtualSampleRate / (float) width;
-		float dbPerPx = (maxDB - minDB) / fftHeight;
+		float dbPerPx = (maxDB - minDB) / fftDataHeight;
 		float channelFrequencyVariation = (float) Math.max(channelWidth*0.8f, width/15f*hzPerPx);
 		float channelWidthVariation = width/15*hzPerPx;
 		long touchedFrequency = virtualFrequency - virtualSampleRate/2 + (long)(e.getX() * hzPerPx);
@@ -765,7 +765,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 
 		// if the user touched the squelch indicator the user wants to adjust the squelch threshold:
 		if(demodulationEnabled 	&& touchedFrequency < channelFrequency + channelWidth
-								&& touchedFrequency > channelFrequency - channelWidth
+				                && touchedFrequency > channelFrequency - channelWidth
 								&& touchedDB < squelch + (maxDB-minDB)/7
 								&& touchedDB > squelch - (maxDB-minDB)/7) {
 			this.scrollType = SCROLLTYPE_SQUELCH;
@@ -773,7 +773,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 		}
 
 		// if the user touched the channel frequency the user wants to shift the channel frequency:
-		else if (demodulationEnabled && e.getY() <= fftHeight
+		else if (demodulationEnabled && e.getY() <= fftDataHeight
 				&& touchedFrequency < channelFrequency + channelFrequencyVariation
 				&& touchedFrequency > channelFrequency - channelFrequencyVariation) {
 			this.scrollType = SCROLLTYPE_CHANNEL_FREQUENCY;
@@ -781,7 +781,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 		}
 
 		// if the user touched the left channel selector border the user wants to adjust the channel width:
-		else if (demodulationEnabled && e.getY() <= fftHeight && showLowerBand
+		else if (demodulationEnabled && e.getY() <= fftDataHeight && showLowerBand
 				&& touchedFrequency < channelFrequency-channelWidth + channelWidthVariation
 				&& touchedFrequency > channelFrequency-channelWidth - channelWidthVariation) {
 			this.scrollType = SCROLLTYPE_CHANNEL_WIDTH_LEFT;
@@ -789,7 +789,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 		}
 
 		// if the user touched the right channel selector border the user wants to adjust the channel width:
-		else if (demodulationEnabled && e.getY() <= fftHeight && showUpperBand
+		else if (demodulationEnabled && e.getY() <= fftDataHeight && showUpperBand
 				&& touchedFrequency < channelFrequency+channelWidth + channelWidthVariation
 				&& touchedFrequency > channelFrequency+channelWidth - channelWidthVariation) {
 			this.scrollType = SCROLLTYPE_CHANNEL_WIDTH_RIGHT;
@@ -869,7 +869,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 						channelWidth = tmpChannelWidth;
 					break;
 				case SCROLLTYPE_SQUELCH:
-					float dbPerPx = (maxDB-minDB) / fftHeight;
+					float dbPerPx = (maxDB-minDB) / fftDataHeight;
 					squelch = squelch + distanceY * dbPerPx;
 					if(squelch < minDB)
 						squelch = minDB;
@@ -881,8 +881,8 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 			// scroll vertically
 			if (verticalScrollEnabled && scrollType == SCROLLTYPE_NORMAL) {
 				// if touch point in the left grid area of fft or if decoupled axis is deactivated:
-				if (!decoupledAxis || (e1.getX() <= gridSize * 1.5 && e1.getY() <= fftDataHeight)) {
-					float yDiff = (maxDB - minDB) * (distanceY / fftHeight);
+				if(!decoupledAxis || (e1.getX() <= gridSize * 1.5 && e1.getY() <= fftDataHeight)) {
+					float yDiff = (maxDB - minDB) * (distanceY / fftDataHeight);
 					// Make sure we stay in the boundaries:
 					if (maxDB - yDiff > MAX_DB)
 						yDiff = MAX_DB - maxDB;
@@ -1100,9 +1100,9 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 				if(c != null) {
 					// Draw all the components
 					drawFFTBackground(c);
+					drawFrequencyGrid(c);
 					drawFFT(c, mag, start, end);
 					drawWaterfall(c);
-					drawFrequencyGrid(c);
 					drawPowerGrid(c);
 					drawPerformanceInfo(c, frameRate, load, averageSignalStrengh);
 				} else
@@ -1135,11 +1135,11 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 	 * @param end		last index to draw from mag (may be > mag.length)
 	 */
 	private void drawFFT(Canvas c, float[] mag, int start, int end) {
-		float previousY		 = fftHeight;	// y coordinate of the previously processed pixel (only used with drawing type line)
+		float previousY		 = fftDataHeight;	// y coordinate of the previously processed pixel (only used with drawing type line)
 		float currentY;							// y coordinate of the currently processed pixel
 		float samplesPerPx 	= (float) (end-start) / (float) width;		// number of fft samples per one pixel
 		float dbDiff 		= maxDB - minDB;
-		float dbWidth 		= fftHeight / dbDiff; 	// Size (in pixel) per 1dB in the fft
+		float dbWidth 		= fftDataHeight / dbDiff; 	// Size (in pixel) per 1dB in the fft
 		float scale 		= this.waterfallColorMap.length / dbDiff;	// scale for the color mapping of the waterfall
 		float avg;				// Used to calculate the average of multiple values in mag (horizontal average)
 		float peakAvg;			// Used to calculate the average of multiple values in peaks
@@ -1188,12 +1188,12 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 
 			// FFT:
 			if(avg > minDB) {
-				currentY = fftHeight - (avg - minDB) * dbWidth;
+				currentY = fftDataHeight - (avg - minDB) * dbWidth;
 				if(currentY < 0 )
 					currentY = 0;
 				switch (fftDrawingType) {
 					case FFT_DRAWING_TYPE_BAR:
-						c.drawLine(i, fftHeight , i, currentY, fftPaint);
+						c.drawLine(i, fftDataHeight , i, currentY, fftPaint);
 						break;
 					case FFT_DRAWING_TYPE_LINE:
 						c.drawLine(i-1,previousY,i,currentY, fftPaint);
@@ -1201,7 +1201,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 
 						// We have to draw the last line to the bottom if we're in the last round:
 						if(i+1 == lastPixel)
-							c.drawLine(i,previousY,i+1,fftHeight, fftPaint);
+							c.drawLine(i,previousY,i+1,fftDataHeight, fftPaint);
 						break;
 					default:
 						Log.e(LOGTAG,"drawFFT: Invalid fft drawing type: " + fftDrawingType);
@@ -1211,7 +1211,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 			// Peak:
 			if(peaks != null) {
 				if(peakAvg > minDB) {
-					peakAvg = fftHeight - (peakAvg - minDB) * dbWidth;
+					peakAvg = fftDataHeight - (peakAvg - minDB) * dbWidth;
 					if(peakAvg > 0 )
 						c.drawPoint(i,peakAvg,peakHoldPaint);
 				}
@@ -1283,15 +1283,18 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 		long tickFreq = (long) (Math.ceil((double) startFrequency/(float)tickSize) * tickSize);
 		float tickPos = pixelPerMinorTick / (float) tickSize * (tickFreq-startFrequency);
 
+		// Separate the area visually
+		c.drawLine(0, fftDataHeight, width, fftDataHeight, textPaint);
+		c.drawLine(0, fftHeight - 1, width, fftHeight - 1, backgroundLinePaint);
+
 		// Draw the ticks
 		for (int i = 0; i < virtualSampleRate/(float)tickSize; i++) {
-			float tickHeight;
-			if(tickFreq % (tickSize*10) == 0) {
+			if (tickFreq % (tickSize * 10L) == 0) {
 				// Major Tick (10x <tickSize> KHz)
-				tickHeight = (float) (gridSize / 2.0);
+				final float tickHeight = gridSize / 3.f;
 
 				// Draw Frequency Text (always in MHz)
-				tickFreqMHz = tickFreq/MHZ;
+				tickFreqMHz = tickFreq / MHZ;
 				if(tickFreqMHz == (int) tickFreqMHz)
 					textStr = String.format("%d", (int)tickFreqMHz);
 				else
@@ -1301,15 +1304,18 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 
 				// ...only if not overlapping with the last text:
 				if(lastTextEndPos+minFreeSpaceBetweenText < textPos) {
-					c.drawText(textStr, textPos, fftHeight - tickHeight, textPaint);
-					lastTextEndPos = textPos + bounds.width();
+					final float textOffset = (2.f * gridSize / 3.f - textBounds.height()) / 2.f;
+					c.drawText(textStr, textPos, fftHeight - textOffset, textPaint);
+					lastTextEndPos = textPos + textBounds.width();
 				}
-				// Draw the tick line:
-				c.drawLine((float) Math.ceil(tickPos), fftHeight, (float) Math.ceil(tickPos), fftHeight - tickHeight, textPaint);
-			} else if(tickFreq % (tickSize*5) == 0) {
+
+				// Draw the grid and tick lines
+				c.drawLine((float) Math.ceil(tickPos), 0, (float) Math.ceil(tickPos), fftDataHeight, backgroundLinePaint);
+				c.drawLine((float) Math.ceil(tickPos), fftDataHeight, (float) Math.ceil(tickPos), fftDataHeight + tickHeight, textPaint);
+			} else if (tickFreq % (tickSize * 5L) == 0) {
 				// Half major tick (5x <tickSize> KHz)
-				tickHeight = (float) (gridSize / 3.0);
-                
+				final float tickHeight = gridSize / 4.f;
+
 				// Draw Frequency Text (always in MHz)...
 				tickFreqMHz = tickFreq / MHZ;
 				if (tickFreqMHz == (int) tickFreqMHz)
@@ -1323,15 +1329,15 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 				if(lastTextEndPos+minFreeSpaceBetweenText < textPos) {
 					// ... if enough space between the major ticks:
 					if (textBounds.width() < pixelPerMinorTick * 3) {
-						c.drawText(textStr, textPos, fftHeight - tickHeight, textSmallPaint);
+						final float textOffset = (2.f * gridSize / 3.f - textBounds.height()) / 2.f;
+						c.drawText(textStr, textPos, fftHeight - textOffset, textSmallPaint);
 						lastTextEndPos = textPos + textBounds.width();
+
+						// Draw the grid and tick line lines
+						c.drawLine((float) Math.ceil(tickPos), 0, (float) Math.ceil(tickPos), fftDataHeight, backgroundLinePaint);
+						c.drawLine((float) Math.ceil(tickPos), fftDataHeight, (float) Math.ceil(tickPos), fftDataHeight + tickHeight, textPaint);
 					}
 				}
-				// Draw the tick line:
-				c.drawLine((float) Math.ceil(tickPos), fftHeight, (float) Math.ceil(tickPos), fftHeight - tickHeight, textPaint);
-			} else {
-				// Minor tick (<tickSize> KHz)
-				tickHeight = (float) (getGridSize() / 4.0);
 			}
 
 			tickFreq += tickSize;
@@ -1344,8 +1350,8 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 			float channelPosition = width/2 + pxPerHz * (channelFrequency - virtualFrequency);
 			float leftBorder = channelPosition - pxPerHz * channelWidth;
 			float rightBorder = channelPosition + pxPerHz * channelWidth;
-			float dbWidth = fftHeight / (maxDB-minDB);
-			float squelchPosition =  fftHeight - (squelch - minDB) * dbWidth;
+			float dbWidth = fftDataHeight / (maxDB - minDB);
+			float squelchPosition = fftDataHeight - (squelch - minDB) * dbWidth;
 
 			// draw half transparent channel area:
 			channelSelectorPaint.setAlpha(0x7f);
@@ -1356,14 +1362,14 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 
 			// draw center and borders:
 			channelSelectorPaint.setAlpha(0xff);
-			c.drawLine(channelPosition,fftHeight, channelPosition, 0, channelSelectorPaint);
-			if(showLowerBand) {
-				c.drawLine(leftBorder, fftHeight, leftBorder, 0, channelWidthSelectorPaint);
-				c.drawLine(leftBorder,squelchPosition,channelPosition,squelchPosition,squelchPaint);
+			c.drawLine(channelPosition, fftDataHeight, channelPosition, 0, channelSelectorPaint);
+			if (showLowerBand) {
+				c.drawLine(leftBorder, fftDataHeight, leftBorder, 0, channelWidthSelectorPaint);
+				c.drawLine(leftBorder, squelchPosition, channelPosition, squelchPosition, squelchPaint);
 			}
-			if(showUpperBand) {
-				c.drawLine(rightBorder, fftHeight, rightBorder, 0, channelWidthSelectorPaint);
-				c.drawLine(channelPosition,squelchPosition,rightBorder,squelchPosition,squelchPaint);
+			if (showUpperBand) {
+				c.drawLine(rightBorder, fftDataHeight, rightBorder, 0, channelWidthSelectorPaint);
+				c.drawLine(channelPosition, squelchPosition, rightBorder, squelchPosition, squelchPaint);
 			}
 
 			// draw squelch text above the squelch selector:
@@ -1393,7 +1399,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 		c.drawRect(0, 0, width, fftHeight, blackPaint);
 
 		// Calculate pixel height of a minor tick (1dB)
-		float pixelPerMinorTick = fftHeight / (maxDB - minDB);
+		float pixelPerMinorTick = fftDataHeight / (maxDB - minDB);
 
 		// Draw the lines from the top to the bottom. Stop as soon as we interfere with the frequency scale
 		int db = (int) maxDB;
@@ -1408,39 +1414,6 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 				break;
 			}
 		}
-
-		// Draw the frequency lines
-		int tickSize = (int) Math.pow(10, 1 + Math.ceil(Math.log10(virtualSampleRate / 2000.)));
-
-		// Calculate pixel width of a minor tick
-		pixelPerMinorTick = width / (virtualSampleRate / (float) tickSize);
-
-		// Calculate the frequency at the left most point of the fft:
-		long startFrequency;
-		if (displayRelativeFrequencies) {
-			startFrequency = (long) (-virtualSampleRate / 2.0);
-		} else {
-			startFrequency = (long) (virtualFrequency - virtualSampleRate / 2.0);
-		}
-
-		// Calculate the frequency and position of the first Tick (ticks are every <tickSize> KHz)
-		long tickFreq = (long) (Math.ceil((double) startFrequency / (float) tickSize) * tickSize);
-		float tickPos = pixelPerMinorTick / (float) tickSize * (tickFreq - startFrequency);
-		float lastMajorTick = tickPos;
-
-		// Draw the ticks
-		for (int i = 0; i < virtualSampleRate / (float) tickSize; i++) {
-			if (tickFreq % (tickSize * 10L) == 0) {
-				c.drawLine((float) Math.ceil(tickPos), 0, (float) Math.ceil(tickPos), fftHeight, backgroundLinePaint);
-				lastMajorTick = tickPos;
-			} else if(tickFreq % (tickSize * 5L) == 0) {
-				if (tickPos - lastMajorTick >= minFreeSpaceBetweenText * 2) {
-					c.drawLine((float) Math.ceil(tickPos), 0, (float) Math.ceil(tickPos), fftHeight, backgroundLinePaint);
-				}
-			}
-			tickFreq += tickSize;
-			tickPos += pixelPerMinorTick;
-		}
 	}
 
 	/**
@@ -1454,7 +1427,7 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 		}
 
 		// Calculate pixel height of a minor tick (1dB)
-		float pixelPerMinorTick = fftHeight / (maxDB-minDB);
+		float pixelPerMinorTick = fftDataHeight / (maxDB-minDB);
 
 		// Draw the ticks from the top to the bottom. Stop as soon as we interfere with the frequency scale
 		int tickDB = (int) maxDB;
