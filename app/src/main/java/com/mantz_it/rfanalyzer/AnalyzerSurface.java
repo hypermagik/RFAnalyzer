@@ -167,8 +167,10 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 		this.fftPaint = new Paint();
 		this.fftPaint.setColor(Color.rgb(0.35f, 0.75f, 1.f));
 		this.fftPaint.setStyle(Paint.Style.FILL);
+		this.fftPaint.setAntiAlias(false);
 		this.peakHoldPaint = new Paint();
 		this.peakHoldPaint.setColor(Color.YELLOW);
+		this.peakHoldPaint.setAntiAlias(false);
 		this.textPaint = new Paint();
 		this.textPaint.setColor(Color.WHITE);
 		this.textPaint.setAntiAlias(true);
