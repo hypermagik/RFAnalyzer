@@ -1,7 +1,6 @@
 package com.mantz_it.rfanalyzer;
 
 import android.app.AlertDialog;
-import android.content.ActivityNotFoundException;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -93,7 +92,6 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 
 	private static final String LOGTAG = "MainActivity";
 	private static final String RECORDING_DIR = "RFAnalyzer";
-	public static final int RTL2832U_RESULT_CODE = 1234;	// arbitrary value, used when sending intent to RTL2832U
 	public static final int PERMISSION_REQUEST_FILE_SOURCE_READ_FILES = 1111;	// arbitrary value, used when requesting
 																				// permission to open file for the file source
 	public static final int PERMISSION_REQUEST_RECORDING_WRITE_FILES = 1112;	// arbitrary value, used when requesting
@@ -176,39 +174,6 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 		if(savedInstanceState != null) {
 			running = savedInstanceState.getBoolean(getString(R.string.save_state_running));
 			demodulationMode = savedInstanceState.getInt(getString(R.string.save_state_demodulatorMode));
-
-			/* BUGFIX / WORKAROUND:
-			 * The RTL2832U driver will not allow to close the socket and immediately start the driver
-			 * again to reconnect after an orientation change / app kill + restart.
-			 * It will report back in onActivityResult() with a -1 (not specified).
-			 *
-			 * Work-around:
-			 * 1) We won't restart the Analyzer if the current source is set to a local RTL-SDR instance:
-			 * 2) Delay the restart of the Analyzer after the driver was shut down correctly...
-			 */
-			if(running && Integer.valueOf(preferences.getString(getString(R.string.pref_sourceType), "1")) == RTLSDR_SOURCE
-					&& !preferences.getBoolean(getString(R.string.pref_rtlsdr_externalServer),false)) {
-				// 1) don't start Analyzer immediately
-				running = false;
-
-				// Just inform the user about what is going on (why does this take so long? ...)
-				Toast.makeText(MainActivity.this,"Stopping and restarting RTL2832U driver...",Toast.LENGTH_SHORT).show();
-
-				// 2) Delayed start of the Analyzer:
-				Thread timer = new Thread() {
-					@Override
-					public void run() {
-						try {
-							Thread.sleep(1500);
-							startAnalyzer();
-						} catch (InterruptedException e) {
-							Log.e(LOGTAG, "onCreate: (timer thread): Interrupted while sleeping.");
-						}
-					}
-				};
-				timer.start();
-			}
-
 		} else {
 			// Set running to true if autostart is enabled (this will start the analyzer in onStart() )
 			running = preferences.getBoolean((getString(R.string.pref_autostart)), false);
@@ -233,19 +198,6 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 				Log.i(LOGTAG, "onDestroy: logcat exit value: " + logcat.exitValue());
 			} catch (Exception e) {
 				Log.e(LOGTAG, "onDestroy: couldn't stop logcat: " + e.getMessage());
-			}
-		}
-
-		// shut down RTL2832U driver if running:
-		if(running && Integer.valueOf(preferences.getString(getString(R.string.pref_sourceType), "1")) == RTLSDR_SOURCE
-				&& !preferences.getBoolean(getString(R.string.pref_rtlsdr_externalServer),false)) {
-			try {
-				Intent intent = new Intent(Intent.ACTION_VIEW);
-				intent.setClassName("marto.rtl_tcp_andro", "com.sdrtouch.rtlsdr.DeviceOpenActivity");
-				intent.setData(Uri.parse("iqsrc://-x"));	// -x is invalid. will cause the driver to shut down (if running)
-				startActivity(intent);
-			} catch (ActivityNotFoundException e) {
-				Log.e(LOGTAG, "onDestroy: RTL2832U is not installed");
 			}
 		}
 	}
@@ -454,46 +406,6 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
-
-		// err_info from RTL2832U:
-		String[] rtlsdrErrInfo = {
-				"permission_denied",
-				"root_required",
-				"no_devices_found",
-				"unknown_error",
-				"replug",
-				"already_running"};
-
-		switch (requestCode) {
-			case RTL2832U_RESULT_CODE:
-				// This happens if the RTL2832U driver was started.
-				// We check for errors and print them:
-				if (resultCode == RESULT_OK)
-					Log.i(LOGTAG, "onActivityResult: RTL2832U driver was successfully started.");
-				else {
-					int errorId = -1;
-					int exceptionCode = 0;
-					String detailedDescription = null;
-					if(data != null) {
-						errorId = data.getIntExtra("marto.rtl_tcp_andro.RtlTcpExceptionId", -1);
-						exceptionCode = data.getIntExtra("detailed_exception_code", 0);
-						detailedDescription = data.getStringExtra("detailed_exception_message");
-					}
-					String errorMsg = "ERROR NOT SPECIFIED";
-					if(errorId >= 0 && errorId < rtlsdrErrInfo.length)
-						errorMsg = rtlsdrErrInfo[errorId];
-
-					Log.e(LOGTAG, "onActivityResult: RTL2832U driver returned with error: " + errorMsg + " ("+errorId+")"
-							+ (detailedDescription != null ? ": " + detailedDescription + " (" + exceptionCode + ")" : ""));
-
-					if (source != null && source instanceof RtlsdrSource) {
-						Toast.makeText(MainActivity.this, "Error with Source [" + source.getName() + "]: " + errorMsg + " (" + errorId + ")"
-								+ (detailedDescription != null ? ": " + detailedDescription + " (" + exceptionCode + ")" : ""), Toast.LENGTH_LONG).show();
-						source.close();
-					}
-				}
-				break;
-		}
 	}
 
 	@Override
@@ -588,40 +500,13 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 					}
 					break;
 				case RTLSDR_SOURCE:
-					if(!(source instanceof RtlsdrSource)) {
+					if(!(source instanceof SDRSource) || ((SDRSource)source).getType() != com.sdr.common.DeviceType.RTLSDR) {
 						source.close();
 						createSource();
 					}
-					else {
-						// Check if ip or port has changed and recreate source if necessary:
-						String ip = preferences.getString(getString(R.string.pref_rtlsdr_ip), "");
-						int port = Integer.valueOf(preferences.getString(getString(R.string.pref_rtlsdr_port), "1234"));
-						boolean externalServer = preferences.getBoolean(getString(R.string.pref_rtlsdr_externalServer), false);
-						if(externalServer) {
-							if(!ip.equals(((RtlsdrSource) source).getIpAddress()) || port != ((RtlsdrSource) source).getPort()) {
-								source.close();
-								createSource();
-								return;
-							}
-						} else {
-							if(!((RtlsdrSource) source).getIpAddress().equals("127.0.0.1") || 1234 != ((RtlsdrSource) source).getPort()) {
-								source.close();
-								createSource();
-								return;
-							}
-						}
-
-						// otherwise just overwrite rtl-sdr source settings if changed:
-						int frequencyCorrection = Integer.valueOf(preferences.getString(getString(R.string.pref_rtlsdr_frequencyCorrection), "0"));
-						int frequencyOffset = Integer.valueOf(preferences.getString(getString(R.string.pref_rtlsdr_frequencyOffset), "0"));
-						if(frequencyCorrection != ((RtlsdrSource) source).getFrequencyCorrection())
-							((RtlsdrSource) source).setFrequencyCorrection(frequencyCorrection);
-						if(((RtlsdrSource)source).getFrequencyOffset() != frequencyOffset)
-							((RtlsdrSource)source).setFrequencyOffset(frequencyOffset);
-					}
 					break;
                 case BLADERF_SOURCE:
-                    if (!(source instanceof BladeRFSource)) {
+                    if (!(source instanceof SDRSource) || ((SDRSource)source).getType() != com.sdr.common.DeviceType.bladeRF) {
                         source.close();
                         createSource();
                     }
@@ -704,36 +589,19 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 						break;
 			case RTLSDR_SOURCE:
 						// Create RtlsdrSource
-						if(preferences.getBoolean(getString(R.string.pref_rtlsdr_externalServer), false))
-							source = new RtlsdrSource(preferences.getString(getString(R.string.pref_rtlsdr_ip), ""),
-											Integer.valueOf(preferences.getString(getString(R.string.pref_rtlsdr_port), "1234")));
-						else {
-							source = new RtlsdrSource("127.0.0.1", 1234);
-						}
-
-						frequency = preferences.getLong(getString(R.string.pref_frequency),97000000);
-						sampleRate = preferences.getInt(getString(R.string.pref_sampleRate), source.getMaxSampleRate());
-						if(sampleRate > 2000000)	// might be the case after switching over from HackRF
-							sampleRate = 2000000;
-						source.setFrequency(frequency);
-						source.setSampleRate(sampleRate);
-
-						((RtlsdrSource) source).setFrequencyCorrection(Integer.valueOf(preferences.getString(getString(R.string.pref_rtlsdr_frequencyCorrection), "0")));
-						((RtlsdrSource)source).setFrequencyOffset(Integer.valueOf(
-								preferences.getString(getString(R.string.pref_rtlsdr_frequencyOffset), "0")));
-						((RtlsdrSource)source).setManualGain(preferences.getBoolean(getString(R.string.pref_rtlsdr_manual_gain), false));
-						((RtlsdrSource)source).setAutomaticGainControl(preferences.getBoolean(getString(R.string.pref_rtlsdr_agc), false));
-						if(((RtlsdrSource)source).isManualGain()) {
-							((RtlsdrSource) source).setGain(preferences.getInt(getString(R.string.pref_rtlsdr_gain), 0));
-							((RtlsdrSource) source).setIFGain(preferences.getInt(getString(R.string.pref_rtlsdr_ifGain), 0));
-						}
+						source = new SDRSource(com.sdr.common.DeviceType.RTLSDR);
+						source.setFrequency(preferences.getLong(getString(R.string.pref_frequency), source.getFrequency()));
+						source.setSampleRate(preferences.getInt(getString(R.string.pref_sampleRate), source.getSampleRate()));
+						final SDRSource rtlsdr = (SDRSource) source;
+						rtlsdr.setGain(preferences.getInt(getString(R.string.pref_rtlsdr_gain), rtlsdr.getGain()));
+						rtlsdr.setAGC(preferences.getBoolean(getString(R.string.pref_rtlsdr_agc), rtlsdr.getAGC()));
 						break;
 			case BLADERF_SOURCE:
 						// Create BladeRF source
-						source = new BladeRFSource();
+						source = new SDRSource(com.sdr.common.DeviceType.bladeRF);
 						source.setFrequency(preferences.getLong(getString(R.string.pref_frequency), source.getFrequency()));
 						source.setSampleRate(preferences.getInt(getString(R.string.pref_sampleRate), source.getSampleRate()));
-						final BladeRFSource bladeRF = (BladeRFSource) source;
+						final SDRSource bladeRF = (SDRSource) source;
 						bladeRF.setGain(preferences.getInt(getString(R.string.pref_bladerf_gain), bladeRF.getGain()));
 						bladeRF.setAGC(preferences.getBoolean(getString(R.string.pref_bladerf_agc), bladeRF.getAGC()));
 						break;
@@ -783,45 +651,13 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 					return false;
 				}
 			case RTLSDR_SOURCE:
-				if (source != null && source instanceof RtlsdrSource) {
-					// We might need to start the driver:
-					if (!preferences.getBoolean(getString(R.string.pref_rtlsdr_externalServer), false)) {
-						// start local rtl_tcp instance:
-						try {
-							Intent intent = new Intent(Intent.ACTION_VIEW);
-							intent.setClassName("marto.rtl_tcp_andro", "com.sdrtouch.rtlsdr.DeviceOpenActivity");
-							intent.setData(Uri.parse("iqsrc://-a 127.0.0.1 -p 1234 -n 1"));
-							startActivityForResult(intent, RTL2832U_RESULT_CODE);
-						} catch (ActivityNotFoundException e) {
-							Log.e(LOGTAG, "createSource: RTL2832U is not installed");
-
-							// Show a dialog that links to the play market:
-							new AlertDialog.Builder(this)
-									.setTitle("RTL2832U driver not installed!")
-									.setMessage("You need to install the (free) RTL2832U driver to use RTL-SDR dongles.")
-									.setPositiveButton("Install from Google Play", new DialogInterface.OnClickListener() {
-										public void onClick(DialogInterface dialog, int whichButton) {
-											Intent marketIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=marto.rtl_tcp_andro"));
-											startActivity(marketIntent);
-										}
-									})
-									.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-										public void onClick(DialogInterface dialog, int whichButton) {
-											// do nothing
-										}
-									})
-									.show();
-							return false;
-						}
-					}
-
+				if (source != null && source instanceof SDRSource && ((SDRSource)source).getType() == com.sdr.common.DeviceType.RTLSDR) {
 					return source.open(this, this);
-				} else {
-					Log.e(LOGTAG, "openSource: sourceType is RTLSDR_SOURCE, but source is null or of other type.");
-					return false;
 				}
+				Log.e(LOGTAG, "openSource: sourceType is RTLSDR_SOURCE, but source is null or of other type.");
+				return false;
 			case BLADERF_SOURCE:
-				if (source != null && source instanceof BladeRFSource) {
+				if (source != null && source instanceof SDRSource && ((SDRSource)source).getType() == com.sdr.common.DeviceType.bladeRF) {
 					return source.open(this, this);
 				}
 				Log.e(LOGTAG, "openSource: sourceType is BLADERF_SOURCE, but source is null or of other type.");
@@ -1266,155 +1102,7 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 				hackrfDialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
 				break;
 			case RTLSDR_SOURCE:
-				final int[] possibleGainValues = ((RtlsdrSource)source).getPossibleGainValues();
-				final int[] possibleIFGainValues = ((RtlsdrSource)source).getPossibleIFGainValues();
-				if(possibleGainValues.length <= 1 && possibleIFGainValues.length <= 1) {
-					Toast.makeText(MainActivity.this, source.getName() + " does not support gain adjustment!", Toast.LENGTH_LONG).show();
-				}
-				// Prepare layout:
-				final LinearLayout view_rtlsdr = (LinearLayout) this.getLayoutInflater().inflate(R.layout.rtlsdr_gain, null);
-				final LinearLayout ll_rtlsdr_gain = (LinearLayout) view_rtlsdr.findViewById(R.id.ll_rtlsdr_gain);
-				final LinearLayout ll_rtlsdr_ifgain = (LinearLayout) view_rtlsdr.findViewById(R.id.ll_rtlsdr_ifgain);
-				final Switch sw_rtlsdr_manual_gain = (Switch) view_rtlsdr.findViewById(R.id.sw_rtlsdr_manual_gain);
-				final CheckBox cb_rtlsdr_agc = (CheckBox) view_rtlsdr.findViewById(R.id.cb_rtlsdr_agc);
-				final SeekBar sb_rtlsdr_gain = (SeekBar) view_rtlsdr.findViewById(R.id.sb_rtlsdr_gain);
-				final SeekBar sb_rtlsdr_ifGain = (SeekBar) view_rtlsdr.findViewById(R.id.sb_rtlsdr_ifgain);
-				final TextView tv_rtlsdr_gain = (TextView) view_rtlsdr.findViewById(R.id.tv_rtlsdr_gain);
-				final TextView tv_rtlsdr_ifGain = (TextView) view_rtlsdr.findViewById(R.id.tv_rtlsdr_ifgain);
-
-				// Assign current gain:
-				int gainIndex = 0;
-				int ifGainIndex = 0;
-				for (int i = 0; i < possibleGainValues.length; i++) {
-					if(((RtlsdrSource)source).getGain() == possibleGainValues[i]) {
-						gainIndex = i;
-						break;
-					}
-				}
-				for (int i = 0; i < possibleIFGainValues.length; i++) {
-					if(((RtlsdrSource)source).getIFGain() == possibleIFGainValues[i]) {
-						ifGainIndex = i;
-						break;
-					}
-				}
-				sb_rtlsdr_gain.setMax(possibleGainValues.length - 1);
-				sb_rtlsdr_ifGain.setMax(possibleIFGainValues.length - 1);
-				sb_rtlsdr_gain.setProgress(gainIndex);
-				sb_rtlsdr_ifGain.setProgress(ifGainIndex);
-				tv_rtlsdr_gain.setText("" + possibleGainValues[gainIndex]);
-				tv_rtlsdr_ifGain.setText("" + possibleIFGainValues[ifGainIndex]);
-
-				// Assign current manual gain and agc setting
-				sw_rtlsdr_manual_gain.setChecked(((RtlsdrSource)source).isManualGain());
-				cb_rtlsdr_agc.setChecked(((RtlsdrSource)source).isAutomaticGainControl());
-
-				// Add listener to gui elements:
-				sw_rtlsdr_manual_gain.setOnCheckedChangeListener(new Switch.OnCheckedChangeListener() {
-					@Override
-					public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-						sb_rtlsdr_gain.setEnabled(isChecked);
-						tv_rtlsdr_gain.setEnabled(isChecked);
-						sb_rtlsdr_ifGain.setEnabled(isChecked);
-						tv_rtlsdr_ifGain.setEnabled(isChecked);
-						((RtlsdrSource)source).setManualGain(isChecked);
-						if(isChecked) {
-							((RtlsdrSource) source).setGain(possibleGainValues[sb_rtlsdr_gain.getProgress()]);
-							((RtlsdrSource) source).setIFGain(possibleIFGainValues[sb_rtlsdr_ifGain.getProgress()]);
-						}
-					}
-				});
-				cb_rtlsdr_agc.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
-					@Override
-					public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-						((RtlsdrSource)source).setAutomaticGainControl(isChecked);
-					}
-				});
-				sb_rtlsdr_gain.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-					@Override
-					public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-						tv_rtlsdr_gain.setText("" + possibleGainValues[progress]);
-						((RtlsdrSource) source).setGain(possibleGainValues[progress]);
-					}
-
-					@Override
-					public void onStartTrackingTouch(SeekBar seekBar) {
-					}
-
-					@Override
-					public void onStopTrackingTouch(SeekBar seekBar) {
-					}
-				});
-				sb_rtlsdr_ifGain.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-					@Override
-					public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-						tv_rtlsdr_ifGain.setText("" + possibleIFGainValues[progress]);
-						((RtlsdrSource) source).setIFGain(possibleIFGainValues[progress]);
-					}
-
-					@Override
-					public void onStartTrackingTouch(SeekBar seekBar) {
-					}
-
-					@Override
-					public void onStopTrackingTouch(SeekBar seekBar) {
-					}
-				});
-
-				// Disable gui elements if gain cannot be adjusted:
-				if(possibleGainValues.length <= 1)
-					ll_rtlsdr_gain.setVisibility(View.GONE);
-				if(possibleIFGainValues.length <= 1)
-					ll_rtlsdr_ifgain.setVisibility(View.GONE);
-
-				if(!sw_rtlsdr_manual_gain.isChecked()) {
-					sb_rtlsdr_gain.setEnabled(false);
-					tv_rtlsdr_gain.setEnabled(false);
-					sb_rtlsdr_ifGain.setEnabled(false);
-					tv_rtlsdr_ifGain.setEnabled(false);
-				}
-
-				// Show dialog:
-				AlertDialog rtlsdrDialog = new AlertDialog.Builder(this)
-						.setTitle("Adjust Gain Settings")
-						.setView(view_rtlsdr)
-						.setPositiveButton("Set", new DialogInterface.OnClickListener() {
-							public void onClick(DialogInterface dialog, int whichButton) {
-								// safe preferences:
-								SharedPreferences.Editor edit = preferences.edit();
-								edit.putBoolean(getString(R.string.pref_rtlsdr_manual_gain), sw_rtlsdr_manual_gain.isChecked());
-								edit.putBoolean(getString(R.string.pref_rtlsdr_agc), cb_rtlsdr_agc.isChecked());
-								edit.putInt(getString(R.string.pref_rtlsdr_gain), possibleGainValues[sb_rtlsdr_gain.getProgress()]);
-								edit.putInt(getString(R.string.pref_rtlsdr_ifGain), possibleIFGainValues[sb_rtlsdr_ifGain.getProgress()]);
-								edit.apply();
-							}
-						})
-						.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-							public void onClick(DialogInterface dialog, int whichButton) {
-								// do nothing
-							}
-						})
-						.create();
-				rtlsdrDialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
-					@Override
-					public void onDismiss(DialogInterface dialog) {
-						boolean manualGain = preferences.getBoolean(getString(R.string.pref_rtlsdr_manual_gain), false);
-						boolean agc = preferences.getBoolean(getString(R.string.pref_rtlsdr_agc), false);
-						int gain = preferences.getInt(getString(R.string.pref_rtlsdr_gain), 0);
-						int ifGain = preferences.getInt(getString(R.string.pref_rtlsdr_ifGain), 0);
-						((RtlsdrSource)source).setGain(gain);
-						((RtlsdrSource)source).setIFGain(ifGain);
-						((RtlsdrSource)source).setManualGain(manualGain);
-						((RtlsdrSource)source).setAutomaticGainControl(agc);
-						if(manualGain) {
-							// Note: This is a workaround. After setting manual gain to true we must
-							// rewrite the manual gain values:
-							((RtlsdrSource) source).setGain(gain);
-							((RtlsdrSource) source).setIFGain(ifGain);
-						}
-					}
-				});
-				rtlsdrDialog.show();
-				rtlsdrDialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
+				// adjustGainRTLSDR();
 				break;
             case BLADERF_SOURCE:
 				adjustGainBladeRF();
@@ -1426,7 +1114,7 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 	}
 
 	private void adjustGainBladeRF() {
-		final BladeRFSource bladeRF = (BladeRFSource) source;
+		final SDRSource bladeRF = (SDRSource) source;
 		final int initialGain = bladeRF.getGain();
 
 		final LinearLayout view = (LinearLayout) this.getLayoutInflater().inflate(R.layout.bladerf_gain, null);
@@ -1784,7 +1472,7 @@ public class MainActivity extends AppCompatActivity implements IQSourceInterface
 			return false;
 		}
 
-		final boolean restartAnalyzer = running && source instanceof BladeRFSource;
+		final boolean restartAnalyzer = running && source instanceof SDRSource;
 		if (restartAnalyzer) {
 			final boolean sampleRateChanged = newSampleRate != source.getSampleRate();
 			if (!sampleRateChanged) {

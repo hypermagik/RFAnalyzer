@@ -37,7 +37,7 @@ import java.util.concurrent.TimeUnit;
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
-public class RtlsdrSource implements IQSourceInterface {
+public class RtlsdrOldSource implements IQSourceInterface {
 	public static final int RTLSDR_TUNER_UNKNOWN 	= 0;
 	public static final int RTLSDR_TUNER_E4000 		= 1;
 	public static final int RTLSDR_TUNER_FC0012		= 2;
@@ -109,7 +109,7 @@ public class RtlsdrSource implements IQSourceInterface {
 	};
 	public static final int PACKET_SIZE = 16384;
 
-	public RtlsdrSource (String ip, int port) {
+	public RtlsdrOldSource(String ip, int port) {
 		this.ipAddress = ip;
 		this.port = port;
 
@@ -768,7 +768,7 @@ public class RtlsdrSource implements IQSourceInterface {
 			// Perfom "device open". This means connect to the rtl_tcp instance; get the information
 			if(connect(10000)) {	// 10 seconds for the user to accept permission request
 				// report that the device is ready:
-				callback.onIQSourceReady(RtlsdrSource.this);
+				callback.onIQSourceReady(RtlsdrOldSource.this);
 			} else {
 				if(!stopRequested) {
 					Log.e(LOGTAG, "CommandThread: (open) connect reported error.");
@@ -818,7 +818,7 @@ public class RtlsdrSource implements IQSourceInterface {
 			socket = null;
 			inputStream = null;
 			outputStream = null;
-			RtlsdrSource.this.commandThread = null;		// mark this source as 'closed'
+			RtlsdrOldSource.this.commandThread = null;		// mark this source as 'closed'
 			Log.i(LOGTAG, "CommandThread stopped (Thread: " + this.getName() + ")");
 		}
 	}

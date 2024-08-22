@@ -1543,18 +1543,6 @@ public class AnalyzerSurface extends SurfaceView implements SurfaceHolder.Callba
 				c.drawText(text, rightBorder - textBounds.width(), yPos + textBounds.height(), textSmallPaint);
 				yPos += textBounds.height() * 1.1f;
 			}
-			// RTLSDR specific stuff:
-			if(source instanceof RtlsdrSource) {
-				text = String.format("offset=%4.6f MHz", ((RtlsdrSource)source).getFrequencyOffset()/1000000f);
-				textSmallPaint.getTextBounds(text, 0, text.length(), textBounds);
-				c.drawText(text, rightBorder - textBounds.width(), yPos + textBounds.height(), textSmallPaint);
-				yPos += textBounds.height() * 1.1f;
-
-				text = "ppm=" + ((RtlsdrSource)source).getFrequencyCorrection();
-				textSmallPaint.getTextBounds(text, 0, text.length(), textBounds);
-				c.drawText(text, rightBorder - textBounds.width(), yPos + textBounds.height(), textSmallPaint);
-				yPos += textBounds.height() * 1.1f;
-			}
 		}
 
 		// Draw the channel frequency if demodulation is enabled:

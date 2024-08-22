@@ -14,30 +14,54 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 
-import com.sdr.bladerf.Device;
+import com.sdr.common.DeviceType;
+import com.sdr.common.IDevice;
 
-public class BladeRFSource implements IQSourceInterface, Runnable {
-    private static final String LOGTAG = "bladeRF-Source";
+public class SDRSource implements IQSourceInterface, Runnable {
+    private String LOGTAG = "SDR-Source";
 
     private int sampleRate = 0;
     private long frequency = 0;
     private boolean agc = true;
     private int gain = -1000;
 
-    private final IQConverter iqConverter = new Signed12BitIQConverter();
+    private IQConverter iqConverter = null;
 
     private ArrayBlockingQueue<byte[]> queue = null;
     private ArrayBlockingQueue<byte[]> pool = null;
 
     private static final int queueSize = 1024;
 
-    private Device device = null;
+    private IDevice device = null;
     private Thread usbThread = null;
 
     private boolean isSampling = false;
 
+    public SDRSource(DeviceType deviceType) {
+        switch (deviceType) {
+            case bladeRF:
+                LOGTAG = "bladeRF-Source";
+                device = new com.sdr.bladerf.Device();
+                iqConverter = new Signed12BitIQConverter();
+                break;
+            case RTLSDR:
+                LOGTAG = "RTLSDR-Source";
+                device = new com.sdr.rtlsdr.Device();
+                iqConverter = new Unsigned8BitIQConverter();
+                break;
+        }
+    }
+
+    public DeviceType getType() {
+        return device.getType();
+    }
+
     @Override
     public boolean open(Context context, com.mantz_it.rfanalyzer.IQSourceInterface.Callback callback) {
+        if (device == null || iqConverter == null) {
+            return false;
+        }
+
         queue = new ArrayBlockingQueue<>(queueSize);
         pool = new ArrayBlockingQueue<>(queueSize);
 
@@ -68,7 +92,6 @@ public class BladeRFSource implements IQSourceInterface, Runnable {
             return null;
         };
 
-        device = new Device();
         return device.open(context, openCallback);
     }
 
@@ -89,7 +112,7 @@ public class BladeRFSource implements IQSourceInterface, Runnable {
 
     @Override
     public String getName() {
-        return "bladeRF";
+        return device.getName();
     }
 
     @Override

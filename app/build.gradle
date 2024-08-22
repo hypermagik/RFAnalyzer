@@ -27,6 +27,8 @@ android {
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation project(':hackrf_android')
-    implementation project(':bladerf')
+    implementation project(':sdr:common')
+    implementation project(':sdr:bladerf')
+    implementation project(':sdr:rtlsdr')
     implementation 'com.android.support:appcompat-v7:28.0.0'
 }

@@ -1,13 +1,6 @@
 package com.sdr.bladerf;
 
-import static android.app.PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT;
-import static android.app.PendingIntent.FLAG_MUTABLE;
-
-import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.hardware.usb.UsbConstants;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
@@ -15,8 +8,10 @@ import android.hardware.usb.UsbEndpoint;
 import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
 import android.hardware.usb.UsbRequest;
-import android.os.Build;
 import android.util.Log;
+
+import com.sdr.common.DeviceType;
+import com.sdr.common.USBPermission;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -24,7 +19,7 @@ import java.util.HashMap;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 
-public class Device {
+public class Device implements com.sdr.common.IDevice {
     private static final String LOGTAG = "bladeRF-Device";
     private static final boolean dumpMessages = false;
 
@@ -44,7 +39,7 @@ public class Device {
     private static final int maxSampleRate = 61440000;
     private static final int firSampleRate = 2083334;
 
-    private static final int[] supportedSampleRates = {520834, 1000000, 2000000, 4000000, 8000000, 10000000, 20000000, 23040000, 30000000, 40000000, 61440000};
+    private static final int[] supportedSampleRates = {520834, 1000000, 2000000, 4000000, 8000000, 10000000, 20000000, 23040000, 30000000, 30720000,40000000, 61440000};
 
     private static final long minFrequency = 70000000L;
     private static final long maxFrequency = 6000000000L;
@@ -52,8 +47,17 @@ public class Device {
     private NIOS nios = null;
     private RFIC rfic = null;
 
-    private static final String ACTION_USB_PERMISSION = "com.sdr.bladerf.USB_PERMISSION";
+    @Override
+    public DeviceType getType() {
+        return DeviceType.bladeRF;
+    }
 
+    @Override
+    public String getName() {
+        return "bladeRF";
+    }
+
+    @Override
     public boolean open(Context context, Function<String, Void> callback) {
         UsbManager usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
         if (usbManager == null) {
@@ -84,20 +88,10 @@ public class Device {
             return false;
         }
 
-        if (usbManager.hasPermission(usbDevice)) {
-            callback.apply(open(usbManager, usbDevice));
-        } else {
-            registerNewBroadcastReceiver(context, usbDevice, callback);
-
-            int flags = 0;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                flags = FLAG_MUTABLE | FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT;
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                flags = FLAG_MUTABLE;
-            }
-
-            usbManager.requestPermission(usbDevice, PendingIntent.getBroadcast(context, 0, new Intent(ACTION_USB_PERMISSION), flags));
-        }
+        USBPermission.request(context, usbManager, usbDevice, error -> {
+            callback.apply(error != null ? error : open(usbManager, usbDevice));
+            return null;
+        });
 
         return true;
     }
@@ -206,6 +200,7 @@ public class Device {
         return null;
     }
 
+    @Override
     public void close() {
         if (rfic != null) {
             rfic.close();
@@ -223,49 +218,12 @@ public class Device {
         }
     }
 
+    @Override
     public boolean isOpen() {
         return rfic != null;
     }
 
-    private static void registerNewBroadcastReceiver(Context context, UsbDevice usbDevice, Function<String, Void> callback) {
-        BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-
-            if (ACTION_USB_PERMISSION.equals(action)) {
-                synchronized (this) {
-                    UsbManager manager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
-                    UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
-
-                    if (usbDevice.equals(device)) {
-                        if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
-                            if (manager.hasPermission(device)) {
-                                callback.apply(null);
-                            } else {
-                                callback.apply("Permissions were granted but can't access the device");
-                            }
-                        } else {
-                            callback.apply("Extra permission was not granted");
-                        }
-                        context.unregisterReceiver(this);
-                    } else {
-                        callback.apply("Got a permission for an unexpected device");
-                    }
-                }
-            } else {
-                callback.apply("Unexpected action received");
-            }
-            }
-        };
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(broadcastReceiver, new IntentFilter(ACTION_USB_PERMISSION), Context.RECEIVER_EXPORTED);
-        } else {
-            context.registerReceiver(broadcastReceiver, new IntentFilter(ACTION_USB_PERMISSION));
-        }
-    }
-
+    @Override
     public int getPacketSize() {
         return packetSize;
     }
@@ -353,26 +311,32 @@ public class Device {
         return controlTransferWithResult(Constants.USB_CMD_RF_RX, state) == 0;
     }
 
+    @Override
     public long getMinFrequency() {
         return minFrequency;
     }
 
+    @Override
     public long getMaxFrequency() {
         return maxFrequency;
     }
 
+    @Override
     public int getMinSampleRate() {
         return minSampleRate;
     }
 
+    @Override
     public int getMaxSampleRate() {
         return maxSampleRate;
     }
 
+    @Override
     public int[] getSupportedSampleRates() {
         return supportedSampleRates;
     }
 
+    @Override
     public int getSampleRate() {
         if (rfic != null) {
             return (int) rfic.getSampleRate();
@@ -380,6 +344,7 @@ public class Device {
         return 0;
     }
 
+    @Override
     public void setSampleRate(int sampleRate) {
         if (rfic != null) {
             if (sampleRate < firSampleRate) {
@@ -406,6 +371,7 @@ public class Device {
         }
     }
 
+    @Override
     public long getFrequency() {
         if (rfic != null) {
             return rfic.getFrequency();
@@ -413,22 +379,26 @@ public class Device {
         return 0;
     }
 
+    @Override
     public void setFrequency(long frequency, boolean silent) {
         if (rfic != null) {
             rfic.setFrequency(frequency, silent);
         }
     }
 
+    @Override
     public boolean getManualGain() {
         return rfic != null && rfic.getGainMode() == Constants.GAIN_MGC;
     }
 
+    @Override
     public void setManualGain(boolean enable) {
         if (rfic != null) {
             rfic.setGainMode(enable ? Constants.GAIN_MGC : Constants.GAIN_SLOWATTACK_AGC);
         }
     }
 
+    @Override
     public int getGain() {
         if (rfic != null) {
             return rfic.getGain();
@@ -436,12 +406,14 @@ public class Device {
         return 0;
     }
 
+    @Override
     public void setGain(int gain) {
         if (rfic != null) {
             rfic.setGain(gain);
         }
     }
 
+    @Override
     public void enableRx() {
         if (rfic == null) {
             return;
@@ -458,6 +430,7 @@ public class Device {
         }
     }
 
+    @Override
     public void disableRx() {
         if (rfic == null) {
             return;
@@ -468,6 +441,7 @@ public class Device {
         toggleRx(0);
     }
 
+    @Override
     public UsbRequest[] initializeUSBRequests() {
         UsbRequest[] requests = new UsbRequest[nofTransfers];
 
@@ -496,6 +470,7 @@ public class Device {
         return requests;
     }
 
+    @Override
     public void cancelUSBRequests(UsbRequest[] requests) {
         if (requests != null) {
             for (UsbRequest request : requests) {
@@ -506,6 +481,7 @@ public class Device {
         }
     }
 
+    @Override
     public UsbRequest getSamples() throws TimeoutException {
         while (true) {
             UsbRequest request = usbConnection.requestWait(usbTimeoutForSamples);
@@ -519,6 +495,7 @@ public class Device {
         }
     }
 
+    @Override
     public boolean queueUSBRequest(UsbRequest request, byte[] bufferArray) {
         ByteBuffer buffer = ByteBuffer.wrap(bufferArray);
         request.setClientData(buffer);

@@ -1,1 +1,1 @@
-include ':app', ':hackrf_android', ':bladerf'
+include ':app', ':hackrf_android', ':sdr:common', ':sdr:bladerf', ':sdr:rtlsdr'
