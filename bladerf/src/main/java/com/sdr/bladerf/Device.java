@@ -200,9 +200,6 @@ public class Device {
             Log.e(LOGTAG, "Could not set VCTCXO trim");
         }
 
-        rfic.setGainMode(Constants.GAIN_MGC);
-        rfic.setGain(16);
-
         final String deviceSerialNumber = usbDevice.getSerialNumber();
         Log.i(LOGTAG, "Device with serial number " + deviceSerialNumber + " is ready");
 
@@ -376,9 +373,19 @@ public class Device {
         return supportedSampleRates;
     }
 
+    public int getSampleRate() {
+        if (rfic != null) {
+            return (int) rfic.getSampleRate();
+        }
+        return 0;
+    }
+
     public void setSampleRate(int sampleRate) {
         if (rfic != null) {
             if (sampleRate < firSampleRate) {
+                if (rfic.getSampleRate() > firSampleRate) {
+                    rfic.setSampleRate(firSampleRate);
+                }
                 if (!rfic.setRxFilter(Constants.RFIC_RXFIR_DEC4) || !rfic.setTxFilter(Constants.RFIC_TXFIR_INT4)) {
                     Log.e(LOGTAG, "Failed to set FIR filters to 4x decimate/interpolate");
                 }
@@ -397,6 +404,13 @@ public class Device {
             rfic.setSampleRate(sampleRate);
             rfic.setBandwidth((long) (sampleRate * 0.9));
         }
+    }
+
+    public long getFrequency() {
+        if (rfic != null) {
+            return rfic.getFrequency();
+        }
+        return 0;
     }
 
     public void setFrequency(long frequency, boolean silent) {

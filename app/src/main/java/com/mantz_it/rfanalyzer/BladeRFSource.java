@@ -19,10 +19,10 @@ import com.sdr.bladerf.Device;
 public class BladeRFSource implements IQSourceInterface, Runnable {
     private static final String LOGTAG = "bladeRF-Source";
 
-    private int sampleRate = (int) 1.92e6;
-    private long frequency = (long) 100e6;
-    private int gain = 31;
-    private boolean agc = false;
+    private int sampleRate = 0;
+    private long frequency = 0;
+    private boolean agc = true;
+    private int gain = -1000;
 
     private final IQConverter iqConverter = new Signed12BitIQConverter();
 
@@ -43,8 +43,16 @@ public class BladeRFSource implements IQSourceInterface, Runnable {
 
         Function<String, Void> openCallback = error -> {
             if (error == null) {
-                agc = !device.getManualGain();
-                gain = agc ? 0 : device.getGain();
+                if (sampleRate == 0) {
+                    sampleRate = device.getSampleRate();
+                }
+                if (frequency == 0) {
+                    frequency = device.getFrequency();
+                }
+                if (gain == -1000) {
+                    agc = !device.getManualGain();
+                    gain = device.getGain();
+                }
             }
 
             ExecutorService executor = Executors.newSingleThreadExecutor();
