@@ -12,6 +12,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 
 import com.sdr.bladerf.Device;
 
@@ -40,19 +41,27 @@ public class BladeRFSource implements IQSourceInterface, Runnable {
         queue = new ArrayBlockingQueue<>(queueSize);
         pool = new ArrayBlockingQueue<>(queueSize);
 
+        Function<String, Void> openCallback = error -> {
+            if (error == null) {
+                agc = !device.getManualGain();
+                gain = agc ? 0 : device.getGain();
+            }
+
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+            Handler handler = new Handler(Looper.getMainLooper());
+
+            executor.execute(() -> handler.post(() -> {
+                if (error == null) {
+                    callback.onIQSourceReady(this);
+                } else {
+                    callback.onIQSourceError(this, error);
+                }
+            }));
+            return null;
+        };
+
         device = new Device();
-        if (!device.open(context)) {
-            return false;
-        }
-
-        gain = device.getManualGain() ? device.getGain() : 0;
-
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-        Handler handler = new Handler(Looper.getMainLooper());
-
-        executor.execute(() -> handler.post(() -> callback.onIQSourceReady(this)));
-
-        return true;
+        return device.open(context, openCallback);
     }
 
     @Override

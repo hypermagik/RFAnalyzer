@@ -1,6 +1,13 @@
 package com.sdr.bladerf;
 
+import static android.app.PendingIntent.FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT;
+import static android.app.PendingIntent.FLAG_MUTABLE;
+
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.hardware.usb.UsbConstants;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbDeviceConnection;
@@ -8,12 +15,14 @@ import android.hardware.usb.UsbEndpoint;
 import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
 import android.hardware.usb.UsbRequest;
+import android.os.Build;
 import android.util.Log;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.HashMap;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 
 public class Device {
     private static final String LOGTAG = "bladeRF-Device";
@@ -43,10 +52,9 @@ public class Device {
     private NIOS nios = null;
     private RFIC rfic = null;
 
-    public Device() {
-    }
+    private static final String ACTION_USB_PERMISSION = "com.sdr.bladerf.USB_PERMISSION";
 
-    public boolean open(Context context) {
+    public boolean open(Context context, Function<String, Void> callback) {
         UsbManager usbManager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
         if (usbManager == null) {
             Log.e(LOGTAG, "Couldn't get USB manager");
@@ -76,31 +84,46 @@ public class Device {
             return false;
         }
 
+        if (usbManager.hasPermission(usbDevice)) {
+            callback.apply(open(usbManager, usbDevice));
+        } else {
+            registerNewBroadcastReceiver(context, usbDevice, callback);
+
+            int flags = 0;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                flags = FLAG_MUTABLE | FLAG_ALLOW_UNSAFE_IMPLICIT_INTENT;
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                flags = FLAG_MUTABLE;
+            }
+
+            usbManager.requestPermission(usbDevice, PendingIntent.getBroadcast(context, 0, new Intent(ACTION_USB_PERMISSION), flags));
+        }
+
+        return true;
+    }
+
+    private String open(UsbManager usbManager, UsbDevice usbDevice) {
         try {
             usbConnection = usbManager.openDevice(usbDevice);
         } catch (Exception e) {
-            Log.e(LOGTAG, "Couldn't open USB device: " + e.getMessage());
-            return false;
+            return "Couldn't open USB device: " + e.getMessage();
         }
 
         try {
             usbInterface = usbDevice.getInterface(Constants.INTERFACE_RF_LINK);
         } catch (Exception e) {
-            Log.e(LOGTAG, "Couldn't get USB interface: " + e.getMessage());
             usbConnection.close();
-            return false;
+            return "Couldn't get USB interface: " + e.getMessage();
         }
 
         if (!usbConnection.claimInterface(usbInterface, true)) {
-            Log.e(LOGTAG, "Couldn't claim USB interface");
             usbConnection.close();
-            return false;
+            return "Couldn't claim USB interface";
         }
 
         if (!usbConnection.setInterface(usbInterface)) {
-            Log.e(LOGTAG, "Couldn't set USB interface");
             usbConnection.close();
-            return false;
+            return "Couldn't set USB interface";
         }
 
         UsbEndpoint usbPeripheralEndpointIn;
@@ -112,9 +135,8 @@ public class Device {
             usbPeripheralEndpointIn = usbInterface.getEndpoint(2);
             usbPeripheralEndpointOut = usbInterface.getEndpoint(3);
         } catch (Exception e) {
-            Log.e(LOGTAG, "Couldn't get USB endpoints: " + e.getMessage());
             usbConnection.close();
-            return false;
+            return "Couldn't get USB endpoints: " + e.getMessage();
         }
 
         Log.i(LOGTAG, "Rx endpoint address: " + usbSampleEndpointIn.getAddress()
@@ -122,25 +144,22 @@ public class Device {
                 + " max_packet_size: " + usbSampleEndpointIn.getMaxPacketSize());
 
         if (!isFirmwareReady()) {
-            Log.e(LOGTAG, "Device firmware is not ready, resetting device");
             reset();
             close();
-            return false;
+            return "Device firmware is not ready, resetting device";
         }
         Log.i(LOGTAG, "Device firmware is ready");
 
         final String firmwareVersion = getFirmwareVersion();
         if (firmwareVersion == null) {
-            Log.e(LOGTAG, "Could not get firmware version");
             close();
-            return false;
+            return "Could not get firmware version";
         }
         Log.i(LOGTAG, "Firmware version is " + firmwareVersion);
 
         if (!isFPGALoaded()) {
-            Log.e(LOGTAG, "FPGA is not loaded");
             close();
-            return false;
+            return "FPGA is not loaded";
         }
         Log.i(LOGTAG, "FPGA is loaded");
 
@@ -154,19 +173,17 @@ public class Device {
 
         rfic = new RFIC(nios);
         if (!rfic.open()) {
-            Log.e(LOGTAG, "Could not initialize RFIC");
             rfic = null;
             close();
-            return false;
+            return "Could not initialize RFIC";
         }
 
         rfic.setTxMute();
 
         INA219 ina219 = new INA219(nios);
         if (!ina219.initialize()) {
-            Log.e(LOGTAG, "Could not initialize INA219");
             close();
-            return false;
+            return "Could not initialize INA219";
         }
 
         Log.i(LOGTAG, "Sample rate is " + rfic.getSampleRate());
@@ -189,7 +206,7 @@ public class Device {
         final String deviceSerialNumber = usbDevice.getSerialNumber();
         Log.i(LOGTAG, "Device with serial number " + deviceSerialNumber + " is ready");
 
-        return true;
+        return null;
     }
 
     public void close() {
@@ -211,6 +228,45 @@ public class Device {
 
     public boolean isOpen() {
         return rfic != null;
+    }
+
+    private static void registerNewBroadcastReceiver(Context context, UsbDevice usbDevice, Function<String, Void> callback) {
+        BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+
+            if (ACTION_USB_PERMISSION.equals(action)) {
+                synchronized (this) {
+                    UsbManager manager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
+                    UsbDevice device = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+
+                    if (usbDevice.equals(device)) {
+                        if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
+                            if (manager.hasPermission(device)) {
+                                callback.apply(null);
+                            } else {
+                                callback.apply("Permissions were granted but can't access the device");
+                            }
+                        } else {
+                            callback.apply("Extra permission was not granted");
+                        }
+                        context.unregisterReceiver(this);
+                    } else {
+                        callback.apply("Got a permission for an unexpected device");
+                    }
+                }
+            } else {
+                callback.apply("Unexpected action received");
+            }
+            }
+        };
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.registerReceiver(broadcastReceiver, new IntentFilter(ACTION_USB_PERMISSION), Context.RECEIVER_EXPORTED);
+        } else {
+            context.registerReceiver(broadcastReceiver, new IntentFilter(ACTION_USB_PERMISSION));
+        }
     }
 
     public int getPacketSize() {
